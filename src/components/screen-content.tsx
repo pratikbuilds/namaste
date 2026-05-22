@@ -1,15 +1,15 @@
-import React from 'react';
+import type { ReactNode } from 'react';
 import { Text, View } from 'react-native';
 
-import { EditScreenInfo } from './EditScreenInfo';
+import { EditScreenInfo } from './edit-screen-info';
 
 interface ScreenContentProps {
   title: string;
   path: string;
-  children?: React.ReactNode;
+  children?: ReactNode;
 }
 
-export const ScreenContent: React.FC<ScreenContentProps> = ({ title, path, children }) => {
+export function ScreenContent({ title, path, children }: ScreenContentProps) {
   return (
     <View className={styles.container}>
       <Text className={styles.title}>{title}</Text>
@@ -18,10 +18,10 @@ export const ScreenContent: React.FC<ScreenContentProps> = ({ title, path, child
       {children}
     </View>
   );
-};
+}
 
 const styles = {
-  container: `items-center flex-1 justify-center bg-white`,
-  separator: `h-[1px] my-7 w-4/5 bg-gray-200`,
-  title: `text-xl font-bold`,
-};
+  container: 'items-center flex-1 justify-center bg-white',
+  separator: 'h-[1px] my-7 w-4/5 bg-gray-200',
+  title: 'text-xl font-bold',
+} as const;

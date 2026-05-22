@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "my-expo-app",
-    "slug": "my-expo-app",
+    "name": "Namaste",
+    "slug": "namaste",
     "version": "1.0.0",
+    "scheme": "namaste",
 
     "web": {
       "favicon": "./assets/favicon.png"
@@ -26,9 +27,11 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
+      "bundleIdentifier": "com.superteamnepal.namaste",
       "supportsTablet": true
     },
     "android": {
+      "package": "com.superteamnepal.namaste",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

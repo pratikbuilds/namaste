@@ -1,13 +1,15 @@
 {
-  "name": "my-expo-app",
+  "name": "namaste",
   "version": "1.0.0",
   "scripts": {
     "android": "expo start --android",
+    "check": "bun run typecheck && bun run lint",
     "ios": "expo start --ios",
     "start": "expo start",
     "prebuild": "expo prebuild",
-    "lint": "eslint \"**/*.{js,jsx,ts,tsx}\" && prettier -c \"**/*.{js,jsx,ts,tsx,json}\"",
-    "format": "eslint \"**/*.{js,jsx,ts,tsx}\" --fix && prettier \"**/*.{js,jsx,ts,tsx,json}\" --write",
+    "lint": "eslint . --max-warnings=0 && prettier -c .",
+    "format": "eslint . --fix && prettier . --write",
+    "typecheck": "tsc --noEmit",
     "web": "expo start --web"
   },
   "dependencies": {

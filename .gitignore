@@ -1,7 +1,14 @@
 node_modules/
 .expo/
 dist/
+.env
+.env.*
+!.env.example
+.eas/
+coverage/
 npm-debug.*
+yarn-error.log*
+bun-error.log*
 *.jks
 *.p8
 *.p12
@@ -9,9 +16,6 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
-
-
-
 
 ios
 android
