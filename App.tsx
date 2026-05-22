@@ -1,5 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import {
+  Image,
   ImageBackground,
   Pressable,
   StyleSheet,
@@ -9,75 +11,46 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { HowItWorksScreen } from '@/components/how-it-works-screen';
 import onboardingBackground from './assets/namaste-onboarding-bg.png';
 import './global.css';
 
 const features = [
   {
-    icon: 'shield',
     title: 'Secure & trusted',
     subtitle: 'Your payments are safe',
     backgroundColor: '#e8f1ff',
+    iconUrl: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f6e1.png',
   },
   {
-    icon: 'bolt',
     title: 'Instant & private',
     subtitle: 'No sign-up needed',
     backgroundColor: '#fff3d7',
+    iconUrl: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/26a1.png',
   },
   {
-    icon: 'flag',
     title: 'Made for Nepal',
     subtitle: 'Loved by locals, built for you',
     backgroundColor: '#ffe6df',
+    iconUrl: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f1f3-1f1f5.png',
   },
 ] as const;
 
-function FeatureIcon({ icon }: { icon: (typeof features)[number]['icon'] }) {
-  if (icon === 'bolt') {
-    return (
-      <View style={styles.boltIcon}>
-        <View style={styles.boltTop} />
-        <View style={styles.boltBottom} />
-      </View>
-    );
-  }
+const googleIconUrl = 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg';
 
-  if (icon === 'flag') {
-    return (
-      <View style={styles.flagIcon}>
-        <View style={styles.flagPole} />
-        <View style={styles.flagTriangleTop} />
-        <View style={styles.flagTriangleBottom} />
-        <View style={styles.flagInnerTop} />
-        <View style={styles.flagInnerBottom} />
-        <View style={styles.flagEmblemTop} />
-        <View style={styles.flagEmblemBottom} />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.shieldIcon}>
-      <View style={styles.shieldPoint} />
-      <View style={styles.checkStem} />
-      <View style={styles.checkArm} />
-    </View>
-  );
+function FeatureIcon({ iconUrl }: { iconUrl: string }) {
+  return <Image source={{ uri: iconUrl }} resizeMode="contain" style={styles.featureIconImage} />;
 }
 
 function GoogleMark() {
   return (
     <View style={styles.googleMark}>
-      <Text style={[styles.googleLetter, { color: '#4285f4' }]}>G</Text>
-      <View style={[styles.googlePatch, styles.googleRed]} />
-      <View style={[styles.googlePatch, styles.googleYellow]} />
-      <View style={[styles.googlePatch, styles.googleGreen]} />
+      <Image source={{ uri: googleIconUrl }} resizeMode="contain" style={styles.googleIconImage} />
     </View>
   );
 }
 
-function OnboardingScreen() {
+export function OnboardingScreen({ onContinue }: { onContinue: () => void }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const horizontalPadding = Math.max(28, width * 0.07);
@@ -113,7 +86,7 @@ function OnboardingScreen() {
                 <View key={feature.title}>
                   <View style={styles.featureRow}>
                     <View style={[styles.iconTile, { backgroundColor: feature.backgroundColor }]}>
-                      <FeatureIcon icon={feature.icon} />
+                      <FeatureIcon iconUrl={feature.iconUrl} />
                     </View>
                     <View style={styles.featureText}>
                       <Text selectable style={styles.featureTitle}>
@@ -129,7 +102,7 @@ function OnboardingScreen() {
               ))}
             </View>
 
-            <Pressable style={styles.googleButton}>
+            <Pressable accessibilityRole="button" onPress={onContinue} style={styles.googleButton}>
               <GoogleMark />
               <Text selectable style={styles.googleText}>
                 Continue with Google
@@ -152,9 +125,15 @@ function OnboardingScreen() {
 }
 
 export default function App() {
+  const [showHowItWorks, setShowHowItWorks] = useState(false);
+
   return (
     <SafeAreaProvider>
-      <OnboardingScreen />
+      {showHowItWorks ? (
+        <HowItWorksScreen onBack={() => setShowHowItWorks(false)} />
+      ) : (
+        <OnboardingScreen onContinue={() => setShowHowItWorks(true)} />
+      )}
     </SafeAreaProvider>
   );
 }
@@ -264,156 +243,9 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     backgroundColor: 'rgba(8, 31, 68, 0.11)',
   },
-  shieldIcon: {
+  featureIconImage: {
     width: 27,
-    height: 31,
-    borderTopLeftRadius: 11,
-    borderTopRightRadius: 11,
-    borderBottomLeftRadius: 15,
-    borderBottomRightRadius: 15,
-    backgroundColor: '#2e80ee',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  shieldPoint: {
-    position: 'absolute',
-    bottom: -8,
-    width: 20,
-    height: 20,
-    backgroundColor: '#2e80ee',
-    transform: [{ rotate: '45deg' }],
-  },
-  checkStem: {
-    position: 'absolute',
-    left: 8,
-    top: 15,
-    width: 9,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#ffffff',
-    transform: [{ rotate: '42deg' }],
-  },
-  checkArm: {
-    position: 'absolute',
-    left: 13,
-    top: 12,
-    width: 15,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#ffffff',
-    transform: [{ rotate: '-48deg' }],
-  },
-  boltIcon: {
-    width: 24,
-    height: 32,
-  },
-  boltTop: {
-    position: 'absolute',
-    left: 9,
-    top: 1,
-    width: 0,
-    height: 0,
-    borderLeftWidth: 13,
-    borderBottomWidth: 22,
-    borderLeftColor: 'transparent',
-    borderBottomColor: '#ffb129',
-    transform: [{ skewX: '-14deg' }],
-  },
-  boltBottom: {
-    position: 'absolute',
-    left: 2,
-    top: 14,
-    width: 0,
-    height: 0,
-    borderRightWidth: 14,
-    borderTopWidth: 22,
-    borderRightColor: 'transparent',
-    borderTopColor: '#ffb129',
-    transform: [{ skewX: '-14deg' }],
-  },
-  flagIcon: {
-    width: 27,
-    height: 34,
-  },
-  flagPole: {
-    position: 'absolute',
-    left: 0,
-    top: 1,
-    bottom: 0,
-    width: 2.5,
-    borderRadius: 2,
-    backgroundColor: '#0a2b67',
-  },
-  flagTriangleTop: {
-    position: 'absolute',
-    left: 3,
-    top: 2,
-    width: 0,
-    height: 0,
-    borderTopWidth: 14,
-    borderBottomWidth: 14,
-    borderLeftWidth: 23,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#102b67',
-  },
-  flagTriangleBottom: {
-    position: 'absolute',
-    left: 3,
-    bottom: 3,
-    width: 0,
-    height: 0,
-    borderTopWidth: 13,
-    borderBottomWidth: 13,
-    borderLeftWidth: 22,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#102b67',
-  },
-  flagInnerTop: {
-    position: 'absolute',
-    left: 5,
-    top: 5,
-    width: 0,
-    height: 0,
-    borderTopWidth: 11,
-    borderBottomWidth: 11,
-    borderLeftWidth: 18,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#e23b32',
-  },
-  flagInnerBottom: {
-    position: 'absolute',
-    left: 5,
-    bottom: 6,
-    width: 0,
-    height: 0,
-    borderTopWidth: 10,
-    borderBottomWidth: 10,
-    borderLeftWidth: 17,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#e23b32',
-  },
-  flagEmblemTop: {
-    position: 'absolute',
-    left: 10,
-    top: 11,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#ffffff',
-  },
-  flagEmblemBottom: {
-    position: 'absolute',
-    left: 9,
-    bottom: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#ffffff',
+    height: 27,
   },
   googleButton: {
     minHeight: 56,
@@ -428,36 +260,14 @@ const styles = StyleSheet.create({
     gap: 22,
   },
   googleMark: {
-    width: 34,
-    height: 34,
+    width: 24,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  googleLetter: {
-    fontSize: 29,
-    fontWeight: '900',
-    lineHeight: 34,
-  },
-  googlePatch: {
-    position: 'absolute',
-    width: 13,
-    height: 13,
-    borderRadius: 8,
-  },
-  googleRed: {
-    top: 5,
-    right: 5,
-    backgroundColor: '#ea4335',
-  },
-  googleYellow: {
-    bottom: 8,
-    right: 3,
-    backgroundColor: '#fbbc05',
-  },
-  googleGreen: {
-    bottom: 5,
-    left: 7,
-    backgroundColor: '#34a853',
+  googleIconImage: {
+    width: 24,
+    height: 24,
   },
   googleText: {
     color: '#071f44',

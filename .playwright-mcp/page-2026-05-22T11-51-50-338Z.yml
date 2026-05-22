@@ -1,0 +1,25 @@
+- generic [ref=e2]:
+  - generic [ref=e7]:
+    - generic [ref=e8]:
+      - button "‹" [ref=e9] [cursor=pointer]:
+        - generic [ref=e10]: ‹
+      - button "Skip" [ref=e11] [cursor=pointer]:
+        - generic [ref=e12]: Skip
+    - generic [ref=e14]: How it works
+    - generic [ref=e16]:
+      - generic [ref=e21]:
+        - generic [ref=e24]: "1"
+        - generic [ref=e26]: Load money
+        - generic [ref=e27]: Use your card or Apple Pay
+      - generic [ref=e32]:
+        - generic [ref=e35]: "2"
+        - generic [ref=e37]: Scan any FonePay QR
+        - generic [ref=e38]: Restaurants, shops, taxis
+      - generic [ref=e43]:
+        - generic [ref=e46]: "3"
+        - generic [ref=e48]: Pay instantly
+        - generic [ref=e49]: No local bank account needed
+    - button "Continue" [ref=e50] [cursor=pointer]:
+      - generic [ref=e51]: Continue
+  - generic:
+    - img
