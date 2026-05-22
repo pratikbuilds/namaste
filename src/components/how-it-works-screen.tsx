@@ -12,10 +12,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import howItWorksBackground from '../../assets/how-it-works-bg.png';
-import loadMoneyArtwork from '../../assets/how-it-works-load-money.png';
-import payInstantlyArtwork from '../../assets/how-it-works-pay-instantly.png';
-import scanFonePayArtwork from '../../assets/how-it-works-scan-fonepay.png';
+import { appFontFamily } from '@/theme/typography';
+import howItWorksBackground from '../../assets/how-it-works-bg.jpg';
+import loadMoneyArtwork from '../../assets/how-it-works-load-money.jpg';
+import payInstantlyArtwork from '../../assets/how-it-works-pay-instantly.jpg';
+import scanFonePayArtwork from '../../assets/how-it-works-scan-fonepay.jpg';
 
 const steps = [
   {
@@ -100,7 +101,7 @@ function PolishedPressable({
 function StepArtwork({ step, artworkSize }: { step: (typeof steps)[number]; artworkSize: number }) {
   return (
     <View style={[styles.artFrame, { width: artworkSize, height: artworkSize }]}>
-      <Image source={step.artwork} resizeMode="cover" style={styles.artImage} />
+      <Image fadeDuration={0} source={step.artwork} resizeMode="cover" style={styles.artImage} />
     </View>
   );
 }
@@ -167,7 +168,13 @@ function StepCard({
   );
 }
 
-export function HowItWorksScreen({ onBack }: { onBack?: () => void }) {
+export function HowItWorksScreen({
+  onBack,
+  onContinue,
+}: {
+  onBack?: () => void;
+  onContinue?: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const compact = height < 820;
@@ -184,11 +191,13 @@ export function HowItWorksScreen({ onBack }: { onBack?: () => void }) {
     <View style={styles.root}>
       <StatusBar style="dark" translucent backgroundColor="transparent" />
       <Image
+        fadeDuration={0}
         source={howItWorksBackground}
         resizeMode="stretch"
         style={styles.backgroundBaseImage}
       />
       <Image
+        fadeDuration={0}
         source={howItWorksBackground}
         resizeMode="stretch"
         style={[
@@ -241,6 +250,7 @@ export function HowItWorksScreen({ onBack }: { onBack?: () => void }) {
         <PolishedPressable
           accessibilityRole="button"
           haptic={Haptics.ImpactFeedbackStyle.Medium}
+          onPress={onContinue}
           pressScale={0.975}
           style={[
             styles.continueButton,
@@ -316,8 +326,8 @@ const styles = StyleSheet.create({
   skipText: {
     color: '#061d4b',
     fontSize: 19,
-    fontFamily: 'AvenirNext-DemiBold',
-    fontWeight: '700',
+    fontFamily: appFontFamily,
+    fontWeight: '600',
     lineHeight: 28,
   },
   header: {
@@ -325,8 +335,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#061d4b',
-    fontFamily: 'AvenirNext-Heavy',
-    fontWeight: '800',
+    fontFamily: appFontFamily,
+    fontWeight: '700',
     letterSpacing: 0,
     lineHeight: 50,
   },
@@ -377,8 +387,8 @@ const styles = StyleSheet.create({
   stepChipText: {
     color: '#ffffff',
     fontSize: 16,
-    fontFamily: 'AvenirNext-DemiBold',
-    fontWeight: '700',
+    fontFamily: appFontFamily,
+    fontWeight: '600',
     lineHeight: 20,
   },
   stepRule: {
@@ -399,14 +409,14 @@ const styles = StyleSheet.create({
   cardTitle: {
     flex: 1,
     color: '#061d4b',
-    fontFamily: 'AvenirNext-Heavy',
-    fontWeight: '800',
+    fontFamily: appFontFamily,
+    fontWeight: '700',
     letterSpacing: 0,
     lineHeight: 24,
   },
   cardSubtitle: {
     color: '#25395e',
-    fontFamily: 'AvenirNext-Medium',
+    fontFamily: appFontFamily,
     fontWeight: '500',
     letterSpacing: 0,
     lineHeight: 23,
@@ -433,8 +443,8 @@ const styles = StyleSheet.create({
   continueText: {
     color: '#ffffff',
     fontSize: 25,
-    fontFamily: 'AvenirNext-DemiBold',
-    fontWeight: '800',
+    fontFamily: appFontFamily,
+    fontWeight: '700',
     letterSpacing: 0,
     lineHeight: 34,
   },

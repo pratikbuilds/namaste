@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { Asset } from 'expo-asset';
+import { useEffect, useState } from 'react';
 import {
   Image,
   ImageBackground,
@@ -12,7 +13,16 @@ import {
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HowItWorksScreen } from '@/components/how-it-works-screen';
-import onboardingBackground from './assets/namaste-onboarding-bg.png';
+import { TopUpWalletScreen } from '@/screens/top-up-wallet-screen';
+import { WalletHomeScreen } from '@/screens/wallet-home-screen';
+import { appFontFamily } from '@/theme/typography';
+import howItWorksBackground from './assets/how-it-works-bg.jpg';
+import loadMoneyArtwork from './assets/how-it-works-load-money.jpg';
+import payInstantlyArtwork from './assets/how-it-works-pay-instantly.jpg';
+import scanFonePayArtwork from './assets/how-it-works-scan-fonepay.jpg';
+import onboardingBackground from './assets/namaste-onboarding-bg.jpg';
+import topUpExchangeArtwork from './assets/top-up-exchange-art.jpg';
+import topUpBackground from './assets/top-up-wallet-bg.jpg';
 import './global.css';
 
 const features = [
@@ -36,7 +46,17 @@ const features = [
   },
 ] as const;
 
-const googleIconUrl = 'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg';
+const googleIconUrl = 'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png';
+const remoteIconUrls = [googleIconUrl, ...features.map((feature) => feature.iconUrl)];
+const preloadedScreenAssets = [
+  onboardingBackground,
+  howItWorksBackground,
+  loadMoneyArtwork,
+  payInstantlyArtwork,
+  scanFonePayArtwork,
+  topUpBackground,
+  topUpExchangeArtwork,
+];
 
 function FeatureIcon({ iconUrl }: { iconUrl: string }) {
   return <Image source={{ uri: iconUrl }} resizeMode="contain" style={styles.featureIconImage} />;
@@ -59,6 +79,7 @@ export function OnboardingScreen({ onContinue }: { onContinue: () => void }) {
     <View style={styles.root}>
       <StatusBar style="dark" translucent backgroundColor="transparent" />
       <ImageBackground
+        fadeDuration={0}
         source={onboardingBackground}
         resizeMode="cover"
         style={styles.background}
@@ -108,15 +129,6 @@ export function OnboardingScreen({ onContinue }: { onContinue: () => void }) {
                 Continue with Google
               </Text>
             </Pressable>
-
-            <View style={styles.safeHands}>
-              <View style={styles.safeShield}>
-                <Text style={styles.safeCheck}>✓</Text>
-              </View>
-              <Text selectable style={styles.safeText}>
-                {"You're in safe hands"}
-              </Text>
-            </View>
           </View>
         </View>
       </ImageBackground>
@@ -125,15 +137,84 @@ export function OnboardingScreen({ onContinue }: { onContinue: () => void }) {
 }
 
 export default function App() {
-  const [showHowItWorks, setShowHowItWorks] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState<
+    'onboarding' | 'how-it-works' | 'top-up-wallet' | 'home'
+  >('onboarding');
+  const [screenAssetsReady, setScreenAssetsReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    Asset.loadAsync(preloadedScreenAssets)
+      .then(() => {
+        if (mounted) {
+          setScreenAssetsReady(true);
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setScreenAssetsReady(true);
+        }
+      });
+
+    void Promise.all(remoteIconUrls.map((url) => Image.prefetch(url)));
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function warmScreenAssets() {
+    if (!screenAssetsReady) {
+      try {
+        await Asset.loadAsync(preloadedScreenAssets);
+      } finally {
+        setScreenAssetsReady(true);
+      }
+    }
+  }
+
+  async function showHowItWorks() {
+    await warmScreenAssets();
+    setCurrentScreen('how-it-works');
+  }
+
+  async function showTopUpWallet() {
+    await warmScreenAssets();
+    setCurrentScreen('top-up-wallet');
+  }
 
   return (
     <SafeAreaProvider>
-      {showHowItWorks ? (
-        <HowItWorksScreen onBack={() => setShowHowItWorks(false)} />
-      ) : (
-        <OnboardingScreen onContinue={() => setShowHowItWorks(true)} />
-      )}
+      {currentScreen === 'onboarding' ? (
+        <OnboardingScreen
+          onContinue={() => {
+            void showHowItWorks();
+          }}
+        />
+      ) : null}
+      {currentScreen === 'how-it-works' ? (
+        <HowItWorksScreen
+          onBack={() => setCurrentScreen('onboarding')}
+          onContinue={() => {
+            void showTopUpWallet();
+          }}
+        />
+      ) : null}
+      {currentScreen === 'top-up-wallet' ? (
+        <TopUpWalletScreen
+          onBack={() => setCurrentScreen('how-it-works')}
+          onComplete={() => setCurrentScreen('home')}
+        />
+      ) : null}
+      {currentScreen === 'home' ? (
+        <WalletHomeScreen
+          onScanQr={() => undefined}
+          onTopUp={() => {
+            void showTopUpWallet();
+          }}
+        />
+      ) : null}
     </SafeAreaProvider>
   );
 }
@@ -177,8 +258,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#071f44',
-    fontFamily: 'AvenirNext-Heavy',
-    fontWeight: '800',
+    fontFamily: appFontFamily,
+    fontWeight: '700',
     letterSpacing: 0,
     lineHeight: 66,
   },
@@ -193,7 +274,7 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: 18,
     color: '#061d42',
-    fontFamily: 'AvenirNext-Medium',
+    fontFamily: appFontFamily,
     fontWeight: '500',
     letterSpacing: 0,
     lineHeight: 27,
@@ -227,14 +308,14 @@ const styles = StyleSheet.create({
   featureTitle: {
     color: '#071f44',
     fontSize: 16,
-    fontFamily: 'AvenirNext-DemiBold',
-    fontWeight: '700',
+    fontFamily: appFontFamily,
+    fontWeight: '600',
     letterSpacing: 0,
   },
   featureSubtitle: {
     color: '#315b89',
     fontSize: 12,
-    fontFamily: 'AvenirNext-Medium',
+    fontFamily: appFontFamily,
     fontWeight: '500',
     letterSpacing: 0,
   },
@@ -257,51 +338,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 22,
+    gap: 16,
   },
   googleMark: {
-    width: 24,
-    height: 24,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
   googleIconImage: {
-    width: 24,
-    height: 24,
+    width: 34,
+    height: 34,
   },
   googleText: {
     color: '#071f44',
     fontSize: 17,
-    fontFamily: 'AvenirNext-DemiBold',
-    fontWeight: '800',
-    letterSpacing: 0,
-  },
-  safeHands: {
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  safeShield: {
-    width: 26,
-    height: 30,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  safeCheck: {
-    color: '#ffffff',
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  safeText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontFamily: 'AvenirNext-Medium',
-    fontWeight: '500',
+    fontFamily: appFontFamily,
+    fontWeight: '600',
     letterSpacing: 0,
   },
 });

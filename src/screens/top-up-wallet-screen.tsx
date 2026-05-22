@@ -1,17 +1,117 @@
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Image,
+  ImageBackground,
+  InputAccessoryView,
+  Keyboard,
+  Platform,
+  Pressable,
+  type PressableProps,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type StyleProp,
+  type ViewStyle,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const amountOptions = ['$10', '$25', '$50', '$100'] as const;
+import { appBoldFontFamily, appFontFamily, appHeavyFontFamily } from '@/theme/typography';
+import exchangeArtwork from '../../assets/top-up-exchange-art.jpg';
+import topUpBackground from '../../assets/top-up-wallet-bg.jpg';
+
+const exchangeRate = 133.2;
+const amountOptions = [10, 25, 50, 100] as const;
+const googleIconUrl = 'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png';
+const amountInputAccessoryId = 'top-up-amount-input-accessory';
+const AnimatedPressableBase = Animated.createAnimatedComponent(Pressable);
 
 const paymentOptions = [
-  { id: 'apple', title: 'Apple Pay', selected: true },
-  { id: 'google', title: 'Google Pay', selected: false },
-  { id: 'card', title: 'Debit or credit card', selected: false },
-  { id: 'more', title: 'More payment options', selected: false },
+  { id: 'apple', title: 'Apple Pay' },
+  { id: 'google', title: 'Google Pay' },
+  { id: 'card', title: 'Debit or credit card' },
+  { id: 'more', title: 'More payment options' },
 ] as const;
 
 type PaymentOptionId = (typeof paymentOptions)[number]['id'];
+type AnimatedPressableProps = PressableProps & {
+  haptic?: 'impact' | 'selection';
+  style?: StyleProp<ViewStyle>;
+};
+
+function formatNpr(amount: number) {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+function cleanUsdInput(value: string) {
+  const cleaned = value.replace(/[^0-9.]/g, '');
+  const [rawWhole, ...rest] = cleaned.split('.');
+  const whole = rawWhole ?? '';
+  const decimal = rest.join('').slice(0, 2);
+
+  return rest.length > 0 ? `${whole}.${decimal}` : whole;
+}
+
+function formatUsdInput(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
+}
+
+function triggerHaptic(type: AnimatedPressableProps['haptic'] = 'selection') {
+  if (Platform.OS === 'web') {
+    return;
+  }
+
+  if (type === 'impact') {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    return;
+  }
+
+  void Haptics.selectionAsync();
+}
+
+function AnimatedPressable({
+  haptic = 'selection',
+  onPress,
+  onPressIn,
+  onPressOut,
+  style,
+  ...props
+}: AnimatedPressableProps) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  function animateTo(value: number) {
+    Animated.timing(scale, {
+      duration: value < 1 ? 90 : 140,
+      toValue: value,
+      useNativeDriver: true,
+    }).start();
+  }
+
+  return (
+    <AnimatedPressableBase
+      {...props}
+      onPress={(event) => {
+        triggerHaptic(haptic);
+        onPress?.(event);
+      }}
+      onPressIn={(event) => {
+        animateTo(0.97);
+        onPressIn?.(event);
+      }}
+      onPressOut={(event) => {
+        animateTo(1);
+        onPressOut?.(event);
+      }}
+      style={[style, { transform: [{ scale }] }]}
+    />
+  );
+}
 
 export function TopUpWalletRoute() {
   return (
@@ -21,161 +121,241 @@ export function TopUpWalletRoute() {
   );
 }
 
-export function TopUpWalletScreen() {
+export function TopUpWalletScreen({
+  onBack,
+  onComplete,
+}: {
+  onBack?: () => void;
+  onComplete?: () => void;
+}) {
+  const [usdInput, setUsdInput] = useState('50');
+  const [selectedPaymentId, setSelectedPaymentId] = useState<PaymentOptionId>('apple');
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const horizontalPadding = Math.max(28, Math.min(30, width * 0.066));
-  const titleSize = Math.min(38, width * 0.089);
-  const titleWidth = Math.min(230, width * 0.535);
+  const { height, width } = useWindowDimensions();
+  const isShort = height < 780;
+  const horizontalPadding = Math.max(22, Math.min(28, width * 0.061));
+  const titleSize = Math.min(isShort ? 31 : 35, width * 0.084);
+  const titleWidth = Math.min(238, width * 0.58);
+  const usdAmount = Number.parseFloat(usdInput) || 0;
+  const nprAmount = useMemo(() => Math.round(usdAmount * exchangeRate), [usdAmount]);
+  const formattedNpr = formatNpr(nprAmount);
+  const usdInputWidth = Math.max(42, Math.min(90, usdInput.length * 20));
+
+  function handleAmountPreset(amount: (typeof amountOptions)[number]) {
+    setUsdInput(String(amount));
+  }
+
+  function handleUsdChange(value: string) {
+    setUsdInput(cleanUsdInput(value));
+  }
+
+  function handleNprChange(value: string) {
+    const numericValue = value.replace(/\D/g, '');
+    const nextNpr = Number.parseInt(numericValue, 10);
+
+    if (!numericValue || !Number.isFinite(nextNpr)) {
+      setUsdInput('');
+      return;
+    }
+
+    setUsdInput(formatUsdInput(nextNpr / exchangeRate));
+  }
 
   return (
     <View style={styles.root}>
       <StatusBar style="dark" translucent backgroundColor="transparent" />
 
-      <ScrollView
-        bounces={false}
-        showsVerticalScrollIndicator={false}
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: Math.max(insets.top + 25, 56),
-            paddingHorizontal: horizontalPadding,
-            paddingBottom: Math.max(insets.bottom + 112, 132),
-          },
-        ]}>
-        <View style={styles.header}>
-          <Pressable style={[styles.backButton, { top: 3 }]}>
-            <BackIcon />
-          </Pressable>
+      <ImageBackground
+        fadeDuration={0}
+        source={topUpBackground}
+        resizeMode="cover"
+        style={styles.background}
+        imageStyle={styles.backgroundImage}>
+        <View
+          style={[
+            styles.content,
+            {
+              paddingTop: Math.max(insets.top + (isShort ? 10 : 16), isShort ? 40 : 50),
+              paddingHorizontal: horizontalPadding,
+              paddingBottom: Math.max(insets.bottom + 92, 104),
+            },
+          ]}>
+          <View style={styles.header}>
+            <AnimatedPressable
+              accessibilityRole="button"
+              onPress={onBack}
+              style={styles.backButton}>
+              <BackIcon />
+            </AnimatedPressable>
 
-          <View style={styles.balancePill}>
-            <WalletIcon />
-            <View style={styles.balanceTextWrap}>
-              <Text selectable style={styles.balanceLabel}>
-                Current balance
-              </Text>
-              <Text selectable numberOfLines={1} style={styles.balanceValue}>
-                NPR 0
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.hero}>
-            <Text
-              selectable
-              adjustsFontSizeToFit
-              numberOfLines={1}
-              style={[styles.title, { fontSize: titleSize, maxWidth: titleWidth }]}>
-              Top up wallet
-            </Text>
-            <View style={styles.redSwoosh} />
-            <Text selectable style={styles.subtitle}>
-              Ready to scan and pay
-            </Text>
-          </View>
-        </View>
-
-        <Text selectable style={styles.sectionTitle}>
-          Choose amount
-        </Text>
-
-        <View style={styles.amountGrid}>
-          {amountOptions.map((amount) => {
-            const selected = amount === '$50';
-
-            return (
-              <Pressable
-                key={amount}
-                style={[styles.amountChip, selected && styles.amountChipSelected]}>
-                <Text selectable style={[styles.amountText, selected && styles.amountTextSelected]}>
-                  {amount}
+            <View style={styles.balancePill}>
+              <WalletIcon />
+              <View style={styles.balanceTextWrap}>
+                <Text selectable numberOfLines={1} style={styles.balanceLabel}>
+                  Current balance
                 </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.exchangeCard}>
-          <View style={styles.sparkWrap}>
-            <View style={[styles.spark, styles.sparkLeft]} />
-            <View style={[styles.spark, styles.sparkCenter]} />
-            <View style={[styles.spark, styles.sparkRight]} />
-          </View>
-
-          <View style={styles.exchangeTop}>
-            <Text selectable style={styles.smallLabel}>
-              You add
-            </Text>
-            <View style={styles.moneyLine}>
-              <Text selectable style={styles.usdAmount}>
-                $50
-              </Text>
-              <Text selectable style={styles.usdCode}>
-                USD
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.cardDashLine} />
-          <View style={styles.exchangeArrow}>
-            <ArrowIcon />
-          </View>
-
-          <View style={styles.exchangeBottom}>
-            <Text selectable style={styles.smallLabel}>
-              You receive
-            </Text>
-            <Text selectable style={styles.nprAmount}>
-              NPR 6,660
-            </Text>
-          </View>
-
-          <View style={styles.rateDivider} />
-          <View style={styles.rateRow}>
-            <View style={styles.rateLeft}>
-              <RefreshIcon />
-              <Text selectable style={styles.rateText}>
-                1 USD = 133.20 NPR
-              </Text>
-            </View>
-            <View style={styles.rateRight}>
-              <View style={styles.greenDot} />
-              <Text selectable style={styles.updatedText}>
-                Updated just now
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <Text selectable style={styles.payWithTitle}>
-          Pay with
-        </Text>
-
-        <View style={styles.paymentCard}>
-          {paymentOptions.map((option, index) => (
-            <View key={option.id}>
-              <Pressable style={styles.paymentRow}>
-                <PaymentMark id={option.id} />
-                <Text selectable style={styles.paymentTitle}>
-                  {option.title}
+                <Text selectable numberOfLines={1} style={styles.balanceValue}>
+                  NPR 0
                 </Text>
-                <PaymentTrailing selected={option.selected} />
-              </Pressable>
-              {index < paymentOptions.length - 1 ? <View style={styles.paymentDivider} /> : null}
+              </View>
             </View>
-          ))}
-        </View>
 
-        <View style={styles.rateBadge}>
-          <View style={styles.shieldBadge}>
-            <CheckMark color="#ffffff" size={19} />
+            <View style={styles.hero}>
+              <Text
+                selectable
+                adjustsFontSizeToFit
+                numberOfLines={1}
+                style={[styles.title, { fontSize: titleSize, maxWidth: titleWidth }]}>
+                Top up wallet
+              </Text>
+              <View style={styles.redSwoosh} />
+              <Text selectable style={styles.subtitle}>
+                Ready to scan and pay
+              </Text>
+            </View>
           </View>
-          <Text selectable style={styles.rateBadgeText}>
-            Rate shown before you pay
+
+          <Text selectable style={styles.sectionTitle}>
+            Choose amount
           </Text>
+
+          <View style={styles.amountGrid}>
+            {amountOptions.map((amount) => {
+              const selected = amount === usdAmount;
+
+              return (
+                <AnimatedPressable
+                  key={amount}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => handleAmountPreset(amount)}
+                  style={[styles.amountChip, selected && styles.amountChipSelected]}>
+                  {selected ? (
+                    <View pointerEvents="none" style={styles.selectedAmountAccent}>
+                      <View style={[styles.amountSpark, styles.amountSparkLeft]} />
+                      <View style={[styles.amountSpark, styles.amountSparkCenter]} />
+                      <View style={[styles.amountSpark, styles.amountSparkRight]} />
+                    </View>
+                  ) : null}
+                  <Text
+                    selectable
+                    style={[styles.amountText, selected && styles.amountTextSelected]}>
+                    ${amount}
+                  </Text>
+                </AnimatedPressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.exchangeCard}>
+            <Image
+              fadeDuration={0}
+              source={exchangeArtwork}
+              resizeMode="cover"
+              style={styles.exchangeArtwork}
+            />
+
+            <View style={styles.exchangeTop}>
+              <Text selectable style={styles.smallLabel}>
+                You add
+              </Text>
+              <View style={styles.moneyLine}>
+                <Text selectable={false} style={styles.usdCurrency}>
+                  $
+                </Text>
+                <TextInput
+                  accessibilityLabel="Amount in USD"
+                  inputMode="decimal"
+                  inputAccessoryViewID={amountInputAccessoryId}
+                  keyboardType="decimal-pad"
+                  onChangeText={handleUsdChange}
+                  onSubmitEditing={Keyboard.dismiss}
+                  returnKeyType="done"
+                  showSoftInputOnFocus
+                  style={[styles.usdInput, { width: usdInputWidth }]}
+                  value={usdInput}
+                />
+                <Text selectable style={styles.usdCode}>
+                  USD
+                </Text>
+              </View>
+            </View>
+
+            <View pointerEvents="none" style={styles.cardDashLine} />
+            <View style={styles.exchangeArrow}>
+              <ArrowIcon />
+            </View>
+
+            <View style={styles.exchangeBottom}>
+              <Text selectable style={styles.smallLabel}>
+                You receive
+              </Text>
+              <View style={styles.nprLine}>
+                <Text selectable={false} style={styles.nprCode}>
+                  NPR
+                </Text>
+                <TextInput
+                  accessibilityLabel="Amount in NPR"
+                  inputMode="numeric"
+                  inputAccessoryViewID={amountInputAccessoryId}
+                  keyboardType="number-pad"
+                  onChangeText={handleNprChange}
+                  onSubmitEditing={Keyboard.dismiss}
+                  returnKeyType="done"
+                  showSoftInputOnFocus
+                  style={styles.nprInput}
+                  value={formattedNpr}
+                />
+              </View>
+            </View>
+
+            <View style={styles.rateDivider} />
+            <View style={styles.rateRow}>
+              <View style={styles.rateLeft}>
+                <RefreshIcon />
+                <Text selectable style={styles.rateText}>
+                  1 USD = 133.20 NPR
+                </Text>
+              </View>
+              <View style={styles.rateRight}>
+                <View style={styles.greenDot} />
+                <Text selectable style={styles.updatedText}>
+                  Updated just now
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <Text selectable style={styles.payWithTitle}>
+            Pay with
+          </Text>
+
+          <View style={styles.paymentCard}>
+            {paymentOptions.map((option, index) => {
+              const selected = option.id === selectedPaymentId;
+
+              return (
+                <View key={option.id}>
+                  <AnimatedPressable
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => setSelectedPaymentId(option.id)}
+                    style={[styles.paymentRow, selected && styles.paymentRowSelected]}>
+                    <PaymentMark id={option.id} />
+                    <Text selectable style={styles.paymentTitle}>
+                      {option.title}
+                    </Text>
+                    <PaymentTrailing selected={selected} />
+                  </AnimatedPressable>
+                  {index < paymentOptions.length - 1 ? (
+                    <View style={styles.paymentDivider} />
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
         </View>
-      </ScrollView>
+      </ImageBackground>
 
       <View
         pointerEvents="box-none"
@@ -186,13 +366,30 @@ export function TopUpWalletScreen() {
             paddingBottom: Math.max(insets.bottom + 14, 26),
           },
         ]}>
-        <Pressable style={styles.ctaButton}>
+        <AnimatedPressable
+          accessibilityRole="button"
+          haptic="impact"
+          onPress={onComplete}
+          style={styles.ctaButton}>
           <WalletIcon light />
           <Text selectable style={styles.ctaText}>
-            Add NPR 6,660
+            Add NPR {formattedNpr}
           </Text>
-        </Pressable>
+        </AnimatedPressable>
       </View>
+
+      {Platform.OS === 'ios' ? (
+        <InputAccessoryView nativeID={amountInputAccessoryId}>
+          <View style={styles.keyboardAccessory}>
+            <AnimatedPressable
+              accessibilityRole="button"
+              onPress={Keyboard.dismiss}
+              style={styles.keyboardDoneButton}>
+              <Text style={styles.keyboardDoneText}>Done</Text>
+            </AnimatedPressable>
+          </View>
+        </InputAccessoryView>
+      ) : null}
     </View>
   );
 }
@@ -217,24 +414,11 @@ function WalletIcon({ light = false }: { light?: boolean }) {
 }
 
 function ArrowIcon() {
-  return (
-    <View style={styles.arrowIcon}>
-      <View style={styles.arrowLine} />
-      <View style={[styles.arrowHead, styles.arrowHeadTop]} />
-      <View style={[styles.arrowHead, styles.arrowHeadBottom]} />
-    </View>
-  );
+  return <Text style={styles.arrowGlyph}>→</Text>;
 }
 
 function RefreshIcon() {
-  return (
-    <View style={styles.refreshIcon}>
-      <View style={styles.refreshArcTop} />
-      <View style={styles.refreshArcBottom} />
-      <View style={styles.refreshArrowTop} />
-      <View style={styles.refreshArrowBottom} />
-    </View>
-  );
+  return <Text style={styles.refreshGlyph}>↻</Text>;
 }
 
 function CheckMark({ color, size }: { color: string; size: number }) {
@@ -322,12 +506,7 @@ function PaymentMark({ id }: { id: PaymentOptionId }) {
 function GooglePayMark() {
   return (
     <View style={styles.googleMark}>
-      <Text selectable={false} style={styles.googleLetter}>
-        G
-      </Text>
-      <View style={[styles.googleDot, styles.googleRed]} />
-      <View style={[styles.googleDot, styles.googleYellow]} />
-      <View style={[styles.googleDot, styles.googleGreen]} />
+      <Image source={{ uri: googleIconUrl }} resizeMode="contain" style={styles.googleIconImage} />
     </View>
   );
 }
@@ -352,17 +531,29 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     overflow: 'hidden',
-    backgroundColor: '#fbf5eb',
+    backgroundColor: '#eef7ff',
+  },
+  background: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
   },
   content: {
-    gap: 14,
+    flex: 1,
+    gap: 10,
   },
   header: {
-    height: 130,
+    height: 134,
   },
   backButton: {
     position: 'absolute',
     left: -6,
+    top: 0,
     width: 44,
     height: 44,
     alignItems: 'center',
@@ -397,24 +588,24 @@ const styles = StyleSheet.create({
   },
   balancePill: {
     position: 'absolute',
-    top: 8,
+    top: -7,
     right: 0,
-    width: 140,
-    minHeight: 52,
+    width: 136,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 7,
     borderWidth: 1,
     borderColor: 'rgba(194, 203, 214, 0.72)',
-    borderRadius: 19,
-    paddingVertical: 11,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(246, 248, 250, 0.82)',
-    boxShadow: '0 12px 24px rgba(14, 33, 66, 0.08)',
+    borderRadius: 17,
+    paddingVertical: 7,
+    paddingHorizontal: 9,
+    backgroundColor: 'rgba(249, 251, 253, 0.86)',
+    boxShadow: '0 8px 18px rgba(14, 33, 66, 0.05)',
   },
   walletIcon: {
-    width: 20,
-    height: 16,
+    width: 18,
+    height: 15,
     borderWidth: 2,
     borderColor: navy,
     borderRadius: 5,
@@ -429,8 +620,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 2,
     left: -2,
-    width: 12,
-    height: 7,
+    width: 10,
+    height: 6,
     borderTopWidth: 2,
     borderLeftWidth: 2,
     borderColor: navy,
@@ -439,8 +630,8 @@ const styles = StyleSheet.create({
   walletButton: {
     position: 'absolute',
     right: -3,
-    top: 5,
-    width: 9,
+    top: 4,
+    width: 8,
     height: 6,
     borderWidth: 2,
     borderColor: navy,
@@ -451,35 +642,35 @@ const styles = StyleSheet.create({
   },
   balanceTextWrap: {
     flex: 1,
-    gap: 2,
+    gap: 1,
   },
   balanceLabel: {
     color: ink,
-    fontFamily: 'AvenirNext-Medium',
-    fontSize: 11.5,
+    fontFamily: appFontFamily,
+    fontSize: 10.5,
     letterSpacing: 0,
   },
   balanceValue: {
     color: navy,
-    fontFamily: 'AvenirNext-DemiBold',
-    fontSize: 18,
+    fontFamily: appBoldFontFamily,
+    fontSize: 16,
     fontWeight: '700',
     letterSpacing: 0,
-    lineHeight: 22,
+    lineHeight: 19,
   },
   hero: {
     position: 'absolute',
-    top: 48,
+    top: 52,
     left: 0,
     right: 0,
     gap: 10,
   },
   title: {
     color: navy,
-    fontFamily: 'AvenirNext-DemiBold',
+    fontFamily: appHeavyFontFamily,
     fontWeight: '700',
     letterSpacing: 0,
-    lineHeight: 50,
+    lineHeight: 42,
   },
   redSwoosh: {
     width: 38,
@@ -491,33 +682,61 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: '#3a4d66',
-    fontFamily: 'AvenirNext-Medium',
+    fontFamily: appFontFamily,
     fontSize: 15,
     fontWeight: '500',
     letterSpacing: 0,
-    lineHeight: 20,
+    lineHeight: 21,
   },
   sectionTitle: {
     color: navy,
-    fontFamily: 'AvenirNext-DemiBold',
-    fontSize: 16,
-    fontWeight: '700',
+    fontFamily: appBoldFontFamily,
+    fontSize: 15,
+    fontWeight: '600',
     letterSpacing: 0,
   },
   amountGrid: {
     flexDirection: 'row',
-    gap: 15,
+    gap: 12,
   },
   amountChip: {
     flex: 1,
-    minHeight: 41,
+    minHeight: 38,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(196, 199, 201, 0.8)',
-    borderRadius: 15,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 252, 247, 0.9)',
     boxShadow: '0 6px 14px rgba(25, 35, 55, 0.08)',
+  },
+  selectedAmountAccent: {
+    position: 'absolute',
+    top: -20,
+    alignSelf: 'center',
+    width: 34,
+    height: 18,
+  },
+  amountSpark: {
+    position: 'absolute',
+    width: 3,
+    height: 10,
+    borderRadius: 4,
+    backgroundColor: red,
+  },
+  amountSparkLeft: {
+    left: 4,
+    top: 7,
+    transform: [{ rotate: '-38deg' }],
+  },
+  amountSparkCenter: {
+    left: 15,
+    top: 1,
+  },
+  amountSparkRight: {
+    right: 4,
+    top: 7,
+    transform: [{ rotate: '38deg' }],
   },
   amountChipSelected: {
     borderColor: '#0c3772',
@@ -526,155 +745,152 @@ const styles = StyleSheet.create({
   },
   amountText: {
     color: '#20252e',
-    fontFamily: 'AvenirNext-Medium',
+    fontFamily: appFontFamily,
     fontSize: 16,
     fontWeight: '500',
     letterSpacing: 0,
   },
   amountTextSelected: {
     color: '#ffffff',
-    fontFamily: 'AvenirNext-DemiBold',
-    fontWeight: '700',
+    fontFamily: appBoldFontFamily,
+    fontWeight: '600',
   },
   exchangeCard: {
-    minHeight: 216,
+    minHeight: 188,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(226, 226, 222, 0.92)',
-    borderRadius: 13,
-    paddingTop: 20,
-    paddingHorizontal: 17,
-    paddingBottom: 11,
-    backgroundColor: 'rgba(255, 251, 244, 0.94)',
-    boxShadow: '0 18px 38px rgba(42, 44, 55, 0.13)',
+    borderRadius: 14,
+    paddingTop: 14,
+    paddingHorizontal: 16,
+    paddingBottom: 9,
+    backgroundColor: 'rgba(255, 249, 238, 0.97)',
+    boxShadow: '0 8px 18px rgba(42, 44, 55, 0.06)',
   },
-  sparkWrap: {
+  exchangeArtwork: {
     position: 'absolute',
-    top: -2,
-    alignSelf: 'center',
-    width: 42,
-    height: 28,
-  },
-  spark: {
-    position: 'absolute',
-    width: 3,
-    height: 12,
-    borderRadius: 4,
-    backgroundColor: red,
-  },
-  sparkLeft: {
-    left: 4,
-    top: 13,
-    transform: [{ rotate: '-38deg' }],
-  },
-  sparkCenter: {
-    left: 20,
-    top: 4,
-  },
-  sparkRight: {
-    right: 4,
-    top: 13,
-    transform: [{ rotate: '38deg' }],
+    top: 9,
+    right: -10,
+    width: '74%',
+    height: 92,
+    opacity: 0.95,
   },
   exchangeTop: {
-    gap: 10,
+    gap: 5,
   },
   smallLabel: {
     color: '#294469',
-    fontFamily: 'AvenirNext-Medium',
+    fontFamily: appFontFamily,
     fontSize: 13,
     fontWeight: '500',
     letterSpacing: 0,
   },
   moneyLine: {
+    minHeight: 48,
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 14,
+    alignItems: 'center',
+    gap: 7,
   },
-  usdAmount: {
+  usdCurrency: {
     color: navy,
-    fontFamily: 'AvenirNext-DemiBold',
+    fontFamily: appHeavyFontFamily,
     fontSize: 31,
-    fontWeight: '800',
-    letterSpacing: 0,
-    lineHeight: 36,
-  },
-  usdCode: {
-    paddingBottom: 5,
-    color: navy,
-    fontFamily: 'AvenirNext-DemiBold',
-    fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0,
+    lineHeight: 44,
+  },
+  usdInput: {
+    height: 48,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    color: navy,
+    fontFamily: appHeavyFontFamily,
+    fontSize: 31,
+    fontWeight: '700',
+    letterSpacing: 0,
+    lineHeight: 44,
+    includeFontPadding: false,
+  },
+  usdCode: {
+    marginLeft: 2,
+    color: navy,
+    fontFamily: appBoldFontFamily,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0,
+    lineHeight: 20,
   },
   cardDashLine: {
-    marginTop: 18,
-    width: '55%',
+    position: 'absolute',
+    top: 78,
+    left: 16,
+    right: 16,
     height: 2,
     borderStyle: 'dashed',
     borderWidth: 1,
-    borderColor: 'rgba(185, 175, 156, 0.68)',
+    borderColor: 'rgba(185, 175, 156, 0.58)',
   },
   exchangeArrow: {
     position: 'absolute',
-    top: 79,
+    top: 63,
     alignSelf: 'center',
-    width: 41,
-    height: 41,
+    width: 31,
+    height: 31,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(216, 218, 218, 0.9)',
     borderRadius: 999,
     backgroundColor: '#fffcf8',
-    boxShadow: '0 10px 20px rgba(23, 33, 47, 0.13)',
+    boxShadow: '0 8px 16px rgba(23, 33, 47, 0.12)',
   },
-  arrowIcon: {
-    width: 30,
-    height: 24,
-    justifyContent: 'center',
-  },
-  arrowLine: {
-    width: 29,
-    height: 3,
-    borderRadius: 4,
-    backgroundColor: navy,
-  },
-  arrowHead: {
-    position: 'absolute',
-    right: -1,
-    width: 14,
-    height: 3,
-    borderRadius: 4,
-    backgroundColor: navy,
-  },
-  arrowHeadTop: {
-    top: 6,
-    transform: [{ rotate: '45deg' }],
-  },
-  arrowHeadBottom: {
-    bottom: 6,
-    transform: [{ rotate: '-45deg' }],
+  arrowGlyph: {
+    color: navy,
+    fontFamily: appBoldFontFamily,
+    fontSize: 25,
+    fontWeight: '600',
+    lineHeight: 29,
+    textAlign: 'center',
   },
   exchangeBottom: {
-    marginTop: 16,
-    gap: 10,
+    marginTop: 9,
+    gap: 4,
   },
-  nprAmount: {
+  nprLine: {
+    minHeight: 54,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nprCode: {
     color: navy,
-    fontFamily: 'AvenirNext-DemiBold',
-    fontSize: 39,
-    fontWeight: '800',
+    fontFamily: appHeavyFontFamily,
+    fontSize: 34,
+    fontWeight: '700',
     letterSpacing: 0,
-    lineHeight: 43,
+    lineHeight: 48,
+  },
+  nprInput: {
+    flex: 1,
+    height: 54,
+    minWidth: 168,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    color: navy,
+    fontFamily: appHeavyFontFamily,
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: 0,
+    lineHeight: 48,
+    includeFontPadding: false,
   },
   rateDivider: {
     height: 1,
-    marginTop: 10,
+    marginTop: 8,
     backgroundColor: 'rgba(204, 199, 189, 0.76)',
   },
   rateRow: {
-    minHeight: 31,
+    minHeight: 27,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -685,57 +901,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  refreshIcon: {
-    width: 20,
-    height: 20,
-  },
-  refreshArcTop: {
-    position: 'absolute',
-    top: 5,
-    left: 6,
-    width: 14,
-    height: 14,
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
-    borderColor: navy,
-    borderRadius: 999,
-  },
-  refreshArcBottom: {
-    position: 'absolute',
-    right: 5,
-    bottom: 5,
-    width: 14,
-    height: 14,
-    borderRightWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: navy,
-    borderRadius: 999,
-  },
-  refreshArrowTop: {
-    position: 'absolute',
-    top: 4,
-    right: 3,
-    width: 6,
-    height: 6,
-    borderTopWidth: 2,
-    borderRightWidth: 2,
-    borderColor: navy,
-    transform: [{ rotate: '26deg' }],
-  },
-  refreshArrowBottom: {
-    position: 'absolute',
-    bottom: 4,
-    left: 3,
-    width: 6,
-    height: 6,
-    borderBottomWidth: 2,
-    borderLeftWidth: 2,
-    borderColor: navy,
-    transform: [{ rotate: '26deg' }],
+  refreshGlyph: {
+    width: 22,
+    color: navy,
+    fontFamily: appBoldFontFamily,
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 24,
+    textAlign: 'center',
   },
   rateText: {
     color: navy,
-    fontFamily: 'AvenirNext-Medium',
+    fontFamily: appFontFamily,
     fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0,
@@ -753,7 +930,7 @@ const styles = StyleSheet.create({
   },
   updatedText: {
     color: '#294469',
-    fontFamily: 'AvenirNext-Medium',
+    fontFamily: appFontFamily,
     fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0,
@@ -761,25 +938,28 @@ const styles = StyleSheet.create({
   payWithTitle: {
     marginTop: 0,
     color: navy,
-    fontFamily: 'AvenirNext-DemiBold',
+    fontFamily: appBoldFontFamily,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0,
   },
   paymentCard: {
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: 'rgba(218, 218, 213, 0.94)',
-    borderRadius: 13,
+    borderRadius: 14,
     paddingHorizontal: 14,
     backgroundColor: 'rgba(255, 252, 247, 0.94)',
     boxShadow: '0 16px 30px rgba(35, 45, 65, 0.12)',
   },
   paymentRow: {
-    minHeight: 48,
+    minHeight: 43,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 17,
+  },
+  paymentRowSelected: {
+    backgroundColor: 'rgba(226, 238, 252, 0.28)',
   },
   paymentDivider: {
     height: 1,
@@ -800,16 +980,16 @@ const styles = StyleSheet.create({
   },
   appleGlyph: {
     color: '#050505',
-    fontFamily: 'AvenirNext-DemiBold',
+    fontFamily: appBoldFontFamily,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '600',
     lineHeight: 20,
   },
   payWord: {
     color: '#111111',
-    fontFamily: 'AvenirNext-DemiBold',
+    fontFamily: appBoldFontFamily,
     fontSize: 15.5,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0,
   },
   googleMark: {
@@ -818,11 +998,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  googleIconImage: {
+    width: 17,
+    height: 17,
+  },
   googleLetter: {
     color: '#4285f4',
-    fontFamily: 'AvenirNext-Heavy',
+    fontFamily: appBoldFontFamily,
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '600',
     letterSpacing: 0,
     lineHeight: 20,
   },
@@ -888,9 +1072,9 @@ const styles = StyleSheet.create({
   },
   visaText: {
     color: '#153271',
-    fontFamily: 'AvenirNext-Heavy',
+    fontFamily: appBoldFontFamily,
     fontSize: 7,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   mastercardWrap: {
     width: 16,
@@ -919,17 +1103,17 @@ const styles = StyleSheet.create({
   },
   moreDots: {
     color: navy,
-    fontFamily: 'AvenirNext-Heavy',
+    fontFamily: appBoldFontFamily,
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '600',
     letterSpacing: 4,
   },
   paymentTitle: {
     flex: 1,
     color: navy,
-    fontFamily: 'AvenirNext-DemiBold',
+    fontFamily: appBoldFontFamily,
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0,
   },
   selectedCircle: {
@@ -942,22 +1126,22 @@ const styles = StyleSheet.create({
   },
   chevron: {
     color: navy,
-    fontFamily: 'AvenirNext-DemiBold',
+    fontFamily: appBoldFontFamily,
     fontSize: 23,
-    fontWeight: '700',
+    fontWeight: '600',
     lineHeight: 31,
   },
   rateBadge: {
     alignSelf: 'flex-start',
-    minHeight: 39,
+    minHeight: 37,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     borderWidth: 1,
     borderColor: 'rgba(222, 222, 216, 0.88)',
-    borderRadius: 9,
-    paddingVertical: 7,
-    paddingHorizontal: 17,
+    borderRadius: 13,
+    paddingVertical: 6,
+    paddingHorizontal: 15,
     backgroundColor: 'rgba(255, 252, 244, 0.92)',
     boxShadow: '0 10px 22px rgba(23, 33, 47, 0.11)',
   },
@@ -981,9 +1165,9 @@ const styles = StyleSheet.create({
   },
   rateBadgeText: {
     color: navy,
-    fontFamily: 'AvenirNext-DemiBold',
+    fontFamily: appBoldFontFamily,
     fontSize: 13.5,
-    fontWeight: '700',
+    fontWeight: '600',
     letterSpacing: 0,
   },
   bottomBar: {
@@ -991,11 +1175,34 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    paddingTop: 14,
+    paddingTop: 10,
     backgroundColor: 'rgba(255, 248, 237, 0.02)',
   },
+  keyboardAccessory: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    borderTopWidth: 1,
+    borderColor: 'rgba(195, 202, 214, 0.75)',
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(248, 250, 253, 0.98)',
+  },
+  keyboardDoneButton: {
+    minHeight: 34,
+    justifyContent: 'center',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+  },
+  keyboardDoneText: {
+    color: navy,
+    fontFamily: appBoldFontFamily,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0,
+  },
   ctaButton: {
-    minHeight: 58,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1008,9 +1215,9 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     color: '#ffffff',
-    fontFamily: 'AvenirNext-Heavy',
+    fontFamily: appHeavyFontFamily,
     fontSize: 21,
-    fontWeight: '800',
+    fontWeight: '700',
     letterSpacing: 0,
   },
 });
