@@ -1,13 +1,30 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useMemo, useState } from 'react';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { OrangeDash } from '@/components/orange-dash';
+import { WalletNavbar } from '@/components/wallet-navbar';
 import { appBoldFontFamily, appFontFamily, appHeavyFontFamily } from '@/theme/typography';
+import { triggerSelectionHaptic } from '@/utils/haptics';
+import walletBalanceArt from '../../assets/wallet-balance-art.png';
+import walletHomeBg from '../../assets/wallet-home-bg.png';
+import walletSecurityArt from '../../assets/wallet-security-art.png';
 
 const navy = '#062454';
 const mutedInk = '#40536d';
 const softLine = 'rgba(6, 36, 84, 0.11)';
+
+type HomeTab = 'home' | 'history' | 'saved' | 'profile';
 
 const transactions = [
   {
@@ -31,31 +48,59 @@ const transactions = [
     icon: 'necklace',
     tint: '#d8f4e4',
   },
+  {
+    merchant: 'Garden of Dreams',
+    date: 'May 20',
+    amount: 'NPR 800',
+    icon: 'gate',
+    tint: '#ffefc9',
+  },
+  {
+    merchant: 'Lalitpur Crafts',
+    date: 'May 19',
+    amount: 'NPR 1,450',
+    icon: 'pot',
+    tint: '#e8dfe7',
+  },
 ] as const;
 
-function ProfileButton() {
-  return (
-    <Pressable accessibilityRole="button" style={styles.profileButton}>
-      <Ionicons color={navy} name="person-outline" size={24} />
-      <View style={styles.notificationDot} />
-    </Pressable>
-  );
-}
+const savedPlaces = [
+  {
+    name: 'Boudha Stupa Market',
+    detail: 'Saved merchant QR',
+    icon: 'bookmark-check-outline',
+    tint: '#e2f3ff',
+  },
+  {
+    name: 'Airport Taxi Counter',
+    detail: 'Frequent payment',
+    icon: 'map-marker-check-outline',
+    tint: '#fff0ce',
+  },
+] satisfies Array<{
+  name: string;
+  detail: string;
+  icon: keyof typeof MaterialCommunityIcons.glyphMap;
+  tint: string;
+}>;
 
 function BalanceCard() {
   return (
     <View style={styles.balanceCard}>
+      <Image resizeMode="cover" source={walletBalanceArt} style={styles.balanceArt} />
+      <View style={styles.balanceScrim} />
       <View style={styles.balanceText}>
         <Text selectable style={styles.balanceLabel}>
           Wallet balance
         </Text>
-        <Text selectable adjustsFontSizeToFit numberOfLines={1} style={styles.balanceAmount}>
+        <Text selectable allowFontScaling={false} numberOfLines={1} style={styles.balanceAmount}>
           NPR 6,660
         </Text>
         <Text selectable style={styles.usdAmount}>
           ~= USD 50.00
         </Text>
       </View>
+      <OrangeDash variant="compact" style={styles.balanceDash} />
       <View style={styles.cardShield}>
         <Ionicons color="#0b4a94" name="shield-checkmark-outline" size={29} />
       </View>
@@ -68,33 +113,52 @@ function ActionButton({
   label,
   icon,
   onPress,
+  width,
 }: {
   kind: 'primary' | 'secondary';
   label: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   onPress?: (() => void) | undefined;
+  width: number;
 }) {
   const primary = kind === 'primary';
+  const iconColor = primary ? '#ffffff' : '#d49124';
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.actionButton,
-        primary ? styles.primaryAction : styles.secondaryAction,
-        pressed && styles.pressed,
-      ]}>
-      <MaterialCommunityIcons color={primary ? '#ffffff' : navy} name={icon} size={29} />
-      <Text
-        selectable
-        style={[
-          styles.actionLabel,
-          primary ? styles.primaryActionText : styles.secondaryActionText,
-        ]}>
-        {label}
-      </Text>
-    </Pressable>
+    <View style={{ width }}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}>
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFillObject,
+            styles.actionChrome,
+            primary ? styles.primaryAction : styles.secondaryAction,
+          ]}
+        />
+        {icon === 'wallet-plus-outline' ? (
+          <View style={styles.topUpIconWrap}>
+            <MaterialCommunityIcons color={iconColor} name="wallet-outline" size={32} />
+            <View style={styles.topUpPlus}>
+              <MaterialCommunityIcons color={iconColor} name="plus" size={14} />
+            </View>
+          </View>
+        ) : (
+          <MaterialCommunityIcons color={iconColor} name={icon} size={31} />
+        )}
+        <Text
+          allowFontScaling={false}
+          numberOfLines={1}
+          style={[
+            styles.actionLabel,
+            primary ? styles.primaryActionText : styles.secondaryActionText,
+          ]}>
+          {label}
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -108,6 +172,14 @@ function TransactionIcon({ icon }: { icon: (typeof transactions)[number]['icon']
     );
   }
 
+  if (icon === 'gate') {
+    return <MaterialCommunityIcons color="#704b18" name="gate" size={29} />;
+  }
+
+  if (icon === 'pot') {
+    return <MaterialCommunityIcons color="#704226" name="pot" size={29} />;
+  }
+
   return (
     <MaterialCommunityIcons
       color={icon === 'coffee' ? '#2d1a0f' : '#263f5d'}
@@ -117,16 +189,16 @@ function TransactionIcon({ icon }: { icon: (typeof transactions)[number]['icon']
   );
 }
 
-function TransactionList() {
+function TransactionList({ title = 'Recent transactions' }: { title?: string }) {
   return (
     <View style={styles.transactionsCard}>
       <View style={styles.transactionsHeader}>
         <Text selectable numberOfLines={1} style={styles.sectionTitle}>
-          Recent transactions
+          {title}
         </Text>
         <Pressable accessibilityRole="button" style={styles.seeAll}>
           <Text selectable style={styles.seeAllText}>
-            See all
+            See all transactions
           </Text>
           <Ionicons color="#0058c8" name="chevron-forward" size={20} />
         </Pressable>
@@ -153,6 +225,7 @@ function TransactionList() {
               style={styles.transactionAmount}>
               - {transaction.amount}
             </Text>
+            <Ionicons color="#6f87a0" name="chevron-forward" size={22} />
           </View>
           {index < transactions.length - 1 ? <View style={styles.transactionDivider} /> : null}
         </View>
@@ -161,17 +234,65 @@ function TransactionList() {
   );
 }
 
+function SavedPlaces() {
+  return (
+    <View style={styles.transactionsCard}>
+      <View style={styles.transactionsHeader}>
+        <Text selectable numberOfLines={1} style={styles.sectionTitle}>
+          Saved places
+        </Text>
+      </View>
+      {savedPlaces.map((place, index) => (
+        <View key={place.name}>
+          <Pressable accessibilityRole="button" style={styles.savedRow}>
+            <View style={[styles.transactionIcon, { backgroundColor: place.tint }]}>
+              <MaterialCommunityIcons color={navy} name={place.icon} size={27} />
+            </View>
+            <View style={styles.transactionDetails}>
+              <Text selectable numberOfLines={1} style={styles.transactionMerchant}>
+                {place.name}
+              </Text>
+              <Text selectable style={styles.transactionDate}>
+                {place.detail}
+              </Text>
+            </View>
+            <Ionicons color="#6f87a0" name="chevron-forward" size={22} />
+          </Pressable>
+          {index < savedPlaces.length - 1 ? <View style={styles.transactionDivider} /> : null}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function ProfileSummary() {
+  return (
+    <View style={styles.profileCard}>
+      <View style={styles.profileAvatar}>
+        <Ionicons color="#ffffff" name="person" size={28} />
+      </View>
+      <View style={styles.profileCopy}>
+        <Text selectable style={styles.profileName}>
+          Namaste traveler
+        </Text>
+        <Text selectable style={styles.profileDetail}>
+          Google connected
+        </Text>
+      </View>
+      <Ionicons color={navy} name="chevron-forward" size={23} />
+    </View>
+  );
+}
+
 function SecurityBanner() {
   return (
     <Pressable accessibilityRole="button" style={styles.securityBanner}>
-      <View style={styles.securityBadge}>
-        <Ionicons color="#ffffff" name="shield-checkmark" size={22} />
-      </View>
+      <Image resizeMode="cover" source={walletSecurityArt} style={styles.securityArt} />
       <View style={styles.securityTextWrap}>
-        <Text selectable style={styles.securityTitle}>
+        <Text selectable adjustsFontSizeToFit numberOfLines={1} style={styles.securityTitle}>
           Your payments are secure and private
         </Text>
-        <Text selectable style={styles.securitySubtitle}>
+        <Text selectable numberOfLines={1} style={styles.securitySubtitle}>
           We never share your data
         </Text>
       </View>
@@ -180,26 +301,38 @@ function SecurityBanner() {
   );
 }
 
-function BottomTabs() {
+function BottomTabs({
+  activeTab,
+  onTabPress,
+}: {
+  activeTab: HomeTab;
+  onTabPress: (tab: HomeTab) => void;
+}) {
   const tabs: Array<{
+    id: HomeTab;
     label: string;
     icon: keyof typeof Ionicons.glyphMap;
-    active: boolean;
   }> = [
-    { label: 'Home', icon: 'home', active: true },
-    { label: 'History', icon: 'time-outline', active: false },
-    { label: 'Saved', icon: 'bookmark-outline', active: false },
-    { label: 'Profile', icon: 'person-outline', active: false },
+    { id: 'home', label: 'Home', icon: 'home' },
+    { id: 'history', label: 'History', icon: 'time-outline' },
+    { id: 'saved', label: 'Saved', icon: 'bookmark-outline' },
+    { id: 'profile', label: 'Profile', icon: 'person-outline' },
   ];
 
   return (
     <View style={styles.tabBar}>
       {tabs.map((tab) => (
-        <Pressable accessibilityRole="button" key={tab.label} style={styles.tabItem}>
-          <Ionicons color={tab.active ? '#0867d8' : '#304e72'} name={tab.icon} size={27} />
-          <Text selectable style={[styles.tabLabel, tab.active && styles.activeTabLabel]}>
+        <Pressable
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === tab.id }}
+          key={tab.id}
+          onPress={() => onTabPress(tab.id)}
+          style={({ pressed }) => [styles.tabItem, pressed && styles.pressed]}>
+          <Ionicons color={activeTab === tab.id ? navy : '#304e72'} name={tab.icon} size={27} />
+          <Text selectable style={[styles.tabLabel, activeTab === tab.id && styles.activeTabLabel]}>
             {tab.label}
           </Text>
+          {activeTab === tab.id ? <View style={styles.activeTabIndicator} /> : null}
         </Pressable>
       ))}
     </View>
@@ -207,61 +340,95 @@ function BottomTabs() {
 }
 
 export function WalletHomeScreen({
+  onBack,
   onScanQr,
   onTopUp,
 }: {
+  onBack?: () => void;
   onScanQr?: () => void;
   onTopUp?: () => void;
 }) {
+  const [activeTab, setActiveTab] = useState<HomeTab>('home');
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const horizontalPadding = Math.max(24, Math.min(30, width * 0.06));
+  const actionButtonWidth = (width - horizontalPadding * 2 - 18) / 2;
+  const tabTitle = useMemo(() => {
+    if (activeTab === 'history') {
+      return 'Payment history';
+    }
+
+    if (activeTab === 'saved') {
+      return 'Saved QR';
+    }
+
+    if (activeTab === 'profile') {
+      return 'Profile';
+    }
+
+    return undefined;
+  }, [activeTab]);
+
+  function selectTab(tab: HomeTab) {
+    setActiveTab(tab);
+    triggerSelectionHaptic();
+  }
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" translucent backgroundColor="transparent" />
+      <StatusBar style="dark" />
+      <Image resizeMode="cover" source={walletHomeBg} style={styles.backgroundArt} />
       <ScrollView
         bounces={false}
         contentContainerStyle={[
           styles.scrollContent,
           {
-            paddingTop: Math.max(insets.top + 18, 42),
+            paddingTop: Math.max(insets.top + 8, 56),
             paddingHorizontal: horizontalPadding,
-            paddingBottom: Math.max(insets.bottom + 108, 126),
+            paddingBottom: Math.max(insets.bottom + 128, 144),
           },
         ]}
-        contentInsetAdjustmentBehavior="automatic"
+        contentInsetAdjustmentBehavior="never"
         showsVerticalScrollIndicator={false}>
-        <View style={styles.heroRow}>
-          <View style={styles.heroCopy}>
-            <Text selectable adjustsFontSizeToFit numberOfLines={1} style={styles.title}>
-              Namaste
-            </Text>
-            <View style={styles.redStroke} />
-            <Text selectable style={styles.subtitle}>
-              Ready to pay in Nepal
-            </Text>
-          </View>
-          <ProfileButton />
-        </View>
+        <WalletNavbar onBackPress={onBack} onProfilePress={() => selectTab('profile')} />
 
-        <BalanceCard />
+        {tabTitle ? (
+          <Text selectable style={styles.tabScreenTitle}>
+            {tabTitle}
+          </Text>
+        ) : null}
 
-        <View style={styles.actionsRow}>
-          <ActionButton icon="line-scan" kind="primary" label="Scan QR" onPress={onScanQr} />
-          <ActionButton
-            icon="wallet-plus-outline"
-            kind="secondary"
-            label="Top up"
-            onPress={onTopUp}
-          />
-        </View>
+        {activeTab === 'home' ? (
+          <>
+            <BalanceCard />
 
-        <TransactionList />
-        <SecurityBanner />
+            <View style={styles.actionsRow}>
+              <ActionButton
+                icon="line-scan"
+                kind="primary"
+                label="Scan QR"
+                onPress={onScanQr}
+                width={actionButtonWidth}
+              />
+              <ActionButton
+                icon="wallet-plus-outline"
+                kind="secondary"
+                label="Top up"
+                onPress={onTopUp}
+                width={actionButtonWidth}
+              />
+            </View>
+
+            <TransactionList />
+            <SecurityBanner />
+          </>
+        ) : null}
+        {activeTab === 'history' ? <TransactionList title="All transactions" /> : null}
+        {activeTab === 'saved' ? <SavedPlaces /> : null}
+        {activeTab === 'profile' ? <ProfileSummary /> : null}
       </ScrollView>
-      <View style={[styles.bottomChrome, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-        <BottomTabs />
+      <View style={[styles.bottomChrome, { paddingBottom: 8 }]}>
+        <BottomTabs activeTab={activeTab} onTabPress={selectTab} />
       </View>
     </View>
   );
@@ -274,141 +441,130 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   scrollContent: {
-    gap: 14,
+    gap: 10,
   },
-  heroRow: {
-    minHeight: 116,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+  backgroundArt: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
-  heroCopy: {
-    flex: 1,
-    paddingTop: 6,
-  },
-  title: {
+  tabScreenTitle: {
     color: navy,
     fontFamily: appHeavyFontFamily,
-    fontSize: 48,
+    fontSize: 34,
     fontWeight: '700',
     letterSpacing: 0,
-    lineHeight: 55,
-  },
-  redStroke: {
-    width: 48,
-    height: 3,
-    marginTop: 4,
-    marginLeft: 2,
-    borderRadius: 10,
-    backgroundColor: '#ed4d24',
-  },
-  subtitle: {
-    marginTop: 10,
-    color: mutedInk,
-    fontFamily: appFontFamily,
-    fontSize: 18,
-    fontWeight: '500',
-    letterSpacing: 0,
-  },
-  profileButton: {
-    width: 56,
-    height: 56,
-    marginTop: 5,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.83)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.92)',
-    boxShadow: '0 9px 17px rgba(7, 31, 68, 0.13)',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 12,
-    height: 12,
-    borderRadius: 8,
-    backgroundColor: '#ee5531',
-    borderWidth: 2,
-    borderColor: '#ffffff',
+    lineHeight: 39,
   },
   balanceCard: {
-    minHeight: 142,
+    minHeight: 160,
     borderRadius: 24,
     borderCurve: 'continuous',
     borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.98)',
-    backgroundColor: 'rgba(255, 252, 246, 0.96)',
+    backgroundColor: 'rgba(255, 252, 246, 0.9)',
     overflow: 'hidden',
     boxShadow: '0 10px 26px rgba(35, 63, 91, 0.16)',
   },
+  balanceArt: {
+    position: 'absolute',
+    right: -74,
+    bottom: -12,
+    width: '112%',
+    height: '96%',
+    opacity: 0.98,
+  },
+  balanceScrim: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: '57%',
+    backgroundColor: 'rgba(255, 252, 246, 0.9)',
+  },
   balanceText: {
     zIndex: 2,
-    paddingLeft: 21,
-    paddingTop: 22,
+    width: '74%',
+    paddingLeft: 22,
+    paddingTop: 20,
   },
   balanceLabel: {
     color: mutedInk,
     fontFamily: appFontFamily,
-    fontSize: 19,
+    fontSize: 17,
     fontWeight: '500',
     letterSpacing: 0,
   },
   balanceAmount: {
-    marginTop: 18,
+    marginTop: 16,
     color: navy,
     fontFamily: appHeavyFontFamily,
-    fontSize: 42,
+    fontSize: 43,
     fontWeight: '700',
     letterSpacing: 0,
     lineHeight: 47,
   },
   usdAmount: {
-    marginTop: 7,
+    marginTop: 20,
     color: mutedInk,
     fontFamily: appFontFamily,
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '500',
     letterSpacing: 0,
   },
+  balanceDash: {
+    position: 'absolute',
+    left: 23,
+    top: 108,
+    zIndex: 2,
+  },
   cardShield: {
     position: 'absolute',
-    top: 22,
-    right: 21,
+    top: 20,
+    right: 20,
     zIndex: 3,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 14,
+    justifyContent: 'space-between',
+    minHeight: 65,
   },
   actionButton: {
-    flex: 1,
+    width: '100%',
     minHeight: 65,
-    borderRadius: 25,
+    borderRadius: 24,
     borderCurve: 'continuous',
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 13,
+    justifyContent: 'flex-start',
+    gap: 10,
+    paddingLeft: 28,
+  },
+  actionChrome: {
+    borderRadius: 24,
+    borderCurve: 'continuous',
   },
   pressed: {
     transform: [{ scale: 0.98 }],
   },
   primaryAction: {
-    backgroundColor: '#004984',
+    backgroundColor: '#003f75',
     borderWidth: 2,
     borderColor: '#082c63',
-    boxShadow: '0 6px 9px rgba(2, 22, 57, 0.28), inset 0 2px 5px rgba(255,255,255,0.28)',
   },
   secondaryAction: {
-    backgroundColor: 'rgba(255, 252, 246, 0.73)',
-    borderWidth: 1.2,
+    backgroundColor: 'rgba(255, 252, 246, 0.94)',
+    borderWidth: 1.8,
     borderColor: '#dfa83a',
   },
   actionLabel: {
     fontFamily: appBoldFontFamily,
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     letterSpacing: 0,
   },
@@ -418,30 +574,50 @@ const styles = StyleSheet.create({
   secondaryActionText: {
     color: navy,
   },
+  topUpIconWrap: {
+    width: 37,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topUpPlus: {
+    position: 'absolute',
+    right: -1,
+    bottom: -1,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#fffaf0',
+    backgroundColor: '#fffaf0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   transactionsCard: {
-    borderRadius: 23,
+    marginTop: 5,
+    borderRadius: 22,
     borderCurve: 'continuous',
     borderWidth: 1.4,
     borderColor: 'rgba(255, 255, 255, 0.98)',
     backgroundColor: 'rgba(255, 252, 246, 0.94)',
     overflow: 'hidden',
-    paddingHorizontal: 20,
-    paddingTop: 21,
-    paddingBottom: 22,
+    paddingHorizontal: 19,
+    paddingTop: 14,
+    paddingBottom: 12,
     boxShadow: '0 13px 25px rgba(35, 63, 91, 0.14)',
   },
   transactionsHeader: {
-    minHeight: 38,
+    minHeight: 31,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 12,
   },
   sectionTitle: {
-    flex: 1,
+    flexShrink: 0,
     color: navy,
     fontFamily: appBoldFontFamily,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0,
   },
@@ -453,48 +629,48 @@ const styles = StyleSheet.create({
   seeAllText: {
     color: '#0058c8',
     fontFamily: appFontFamily,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     letterSpacing: 0,
   },
   transactionRow: {
-    minHeight: 74,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
   },
   transactionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },
   transactionDetails: {
     flex: 1,
-    paddingLeft: 16,
-    paddingRight: 7,
+    paddingLeft: 13,
+    paddingRight: 6,
     gap: 3,
   },
   transactionMerchant: {
     color: navy,
     fontFamily: appBoldFontFamily,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     letterSpacing: 0,
   },
   transactionDate: {
     color: mutedInk,
     fontFamily: appFontFamily,
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0,
   },
   transactionAmount: {
-    minWidth: 104,
+    minWidth: 94,
     textAlign: 'right',
     color: navy,
     fontFamily: appBoldFontFamily,
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: '600',
     letterSpacing: 0,
     fontVariant: ['tabular-nums'],
@@ -502,6 +678,11 @@ const styles = StyleSheet.create({
   transactionDivider: {
     height: 1,
     backgroundColor: softLine,
+  },
+  savedRow: {
+    minHeight: 66,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   necklaceIcon: {
     width: 35,
@@ -529,7 +710,8 @@ const styles = StyleSheet.create({
     borderColor: '#2d4638',
   },
   securityBanner: {
-    minHeight: 61,
+    marginTop: 2,
+    minHeight: 46,
     borderRadius: 16,
     borderCurve: 'continuous',
     borderWidth: 1.2,
@@ -537,17 +719,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(252, 255, 255, 0.75)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 13,
-    paddingHorizontal: 18,
+    paddingLeft: 68,
+    paddingRight: 18,
+    overflow: 'hidden',
     boxShadow: '0 9px 16px rgba(35, 63, 91, 0.13)',
   },
-  securityBadge: {
-    width: 38,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: '#3398a8',
-    alignItems: 'center',
-    justifyContent: 'center',
+  securityArt: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: -8,
+    bottom: -8,
+    opacity: 0.92,
   },
   securityTextWrap: {
     flex: 1,
@@ -556,14 +739,53 @@ const styles = StyleSheet.create({
   securityTitle: {
     color: navy,
     fontFamily: appBoldFontFamily,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0,
   },
   securitySubtitle: {
     color: mutedInk,
     fontFamily: appFontFamily,
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0,
+  },
+  profileCard: {
+    minHeight: 86,
+    borderRadius: 22,
+    borderCurve: 'continuous',
+    borderWidth: 1.4,
+    borderColor: 'rgba(255, 255, 255, 0.98)',
+    backgroundColor: 'rgba(255, 252, 246, 0.94)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+    paddingHorizontal: 18,
+    boxShadow: '0 13px 25px rgba(35, 63, 91, 0.14)',
+  },
+  profileAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0b4a94',
+  },
+  profileCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  profileName: {
+    color: navy,
+    fontFamily: appBoldFontFamily,
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: 0,
+  },
+  profileDetail: {
+    color: mutedInk,
+    fontFamily: appFontFamily,
+    fontSize: 14,
     fontWeight: '500',
     letterSpacing: 0,
   },
@@ -572,28 +794,32 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
+    paddingTop: 8,
     backgroundColor: 'transparent',
   },
   tabBar: {
-    minHeight: 76,
-    borderRadius: 25,
+    minHeight: 60,
+    borderRadius: 24,
     borderCurve: 'continuous',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.82)',
-    backgroundColor: 'rgba(255, 255, 255, 0.78)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(255,255,255,0.96)',
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
     overflow: 'hidden',
-    boxShadow: '0 15px 31px rgba(35, 63, 91, 0.17)',
+    position: 'relative',
+    boxShadow: '0 15px 31px rgba(35, 63, 91, 0.2)',
   },
   tabItem: {
     width: 70,
-    minHeight: 62,
+    minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
+    gap: 1,
+    borderRadius: 20,
+    borderCurve: 'continuous',
   },
   tabLabel: {
     color: '#18365e',
@@ -603,6 +829,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   activeTabLabel: {
-    color: '#0867d8',
+    color: navy,
+    fontFamily: appBoldFontFamily,
+    fontWeight: '600',
+  },
+  activeTabIndicator: {
+    position: 'absolute',
+    bottom: 1,
+    width: 28,
+    height: 3,
+    borderRadius: 8,
+    backgroundColor: '#0058c8',
   },
 });

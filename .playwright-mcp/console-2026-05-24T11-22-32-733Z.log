@@ -1,0 +1,56 @@
+[     491ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:82451
+[     538ms] [LOG] Running application "main" with appParams:
+ {rootTag: #root, hydrate: undefined} 
+Development-level warnings: ON.
+Performance optimizations: OFF. @ http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:104848
+[     629ms] Error: Cannot manually set color scheme, as dark mode is type 'media'. Please use StyleSheet.setFlag('darkMode', 'class')
+    at Object.set (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:111619:15)
+    at MutationObserver.observe.attributes (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:111605:27)
+[   34965ms] Error: UnableToResolveError Unable to resolve module react-native-svg from /Users/pratik/development/work/superteam_nepal/my-expo-app/src/components/orange-dash.tsx: react-native-svg could not be found within the project or in these directories:
+  node_modules
+[0m [90m 1 |[39m [36mimport[39m type { [33mStyleProp[39m[33m,[39m [33mViewStyle[39m } [36mfrom[39m [32m'react-native'[39m[33m;[39m
+[31m[1m>[22m[39m[90m 2 |[39m [36mimport[39m [33mSvg[39m[33m,[39m { [33mPath[39m } [36mfrom[39m [32m'react-native-svg'[39m[33m;[39m
+ [90m   |[39m                            [31m[1m^[22m[39m
+ [90m 3 |[39m
+ [90m 4 |[39m type [33mOrangeDashProps[39m [33m=[39m {
+ [90m 5 |[39m   width[33m?[39m[33m:[39m number[33m;[39m[0m
+    at showCompileError (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:116765:19)
+    at HMRClient.<anonymous> (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:116685:13)
+    at HMRClient.emit (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:6113:31)
+    at HMRClient._ws.onmessage (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:5928:18)
+[   41706ms] Error: UnableToResolveError Unable to resolve module react-native-svg from /Users/pratik/development/work/superteam_nepal/my-expo-app/src/components/orange-dash.tsx: react-native-svg could not be found within the project or in these directories:
+  node_modules
+[0m [90m 1 |[39m [36mimport[39m type { [33mStyleProp[39m[33m,[39m [33mViewStyle[39m } [36mfrom[39m [32m'react-native'[39m[33m;[39m
+[31m[1m>[22m[39m[90m 2 |[39m [36mimport[39m [33mSvg[39m[33m,[39m { [33mPath[39m } [36mfrom[39m [32m'react-native-svg'[39m[33m;[39m
+ [90m   |[39m                            [31m[1m^[22m[39m
+ [90m 3 |[39m
+ [90m 4 |[39m type [33mOrangeDashProps[39m [33m=[39m {
+ [90m 5 |[39m   width[33m?[39m[33m:[39m number[33m;[39m[0m
+    at showCompileError (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:116765:19)
+    at HMRClient.<anonymous> (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:116685:13)
+    at HMRClient.emit (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:6113:31)
+    at HMRClient._ws.onmessage (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:5928:18)
+[   69984ms] Error: UnableToResolveError Unable to resolve module react-native-svg from /Users/pratik/development/work/superteam_nepal/my-expo-app/src/components/orange-dash.tsx: react-native-svg could not be found within the project or in these directories:
+  node_modules
+[0m [90m 1 |[39m [36mimport[39m type { [33mStyleProp[39m[33m,[39m [33mViewStyle[39m } [36mfrom[39m [32m'react-native'[39m[33m;[39m
+[31m[1m>[22m[39m[90m 2 |[39m [36mimport[39m [33mSvg[39m[33m,[39m { [33mPath[39m } [36mfrom[39m [32m'react-native-svg'[39m[33m;[39m
+ [90m   |[39m                            [31m[1m^[22m[39m
+ [90m 3 |[39m
+ [90m 4 |[39m type [33mOrangeDashProps[39m [33m=[39m {
+ [90m 5 |[39m   width[33m?[39m[33m:[39m number[33m;[39m[0m
+    at showCompileError (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:116765:19)
+    at HMRClient.<anonymous> (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:116685:13)
+    at HMRClient.emit (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:6113:31)
+    at HMRClient._ws.onmessage (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:5928:18)
+[   97786ms] Error: UnableToResolveError Unable to resolve module react-native-svg from /Users/pratik/development/work/superteam_nepal/my-expo-app/src/components/orange-dash.tsx: react-native-svg could not be found within the project or in these directories:
+  node_modules
+[0m [90m 1 |[39m [36mimport[39m type { [33mStyleProp[39m[33m,[39m [33mViewStyle[39m } [36mfrom[39m [32m'react-native'[39m[33m;[39m
+[31m[1m>[22m[39m[90m 2 |[39m [36mimport[39m [33mSvg[39m[33m,[39m { [33mPath[39m } [36mfrom[39m [32m'react-native-svg'[39m[33m;[39m
+ [90m   |[39m                            [31m[1m^[22m[39m
+ [90m 3 |[39m
+ [90m 4 |[39m type [33mOrangeDashProps[39m [33m=[39m {
+ [90m 5 |[39m   width[33m?[39m[33m:[39m number[33m;[39m[0m
+    at showCompileError (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:116765:19)
+    at HMRClient.<anonymous> (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:116685:13)
+    at HMRClient.emit (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:6113:31)
+    at HMRClient._ws.onmessage (http://localhost:8081/node_modules/expo-router/entry.bundle?platform=web&dev=true&hot=false&lazy=true&transform.engine=hermes&transform.routerRoot=app&unstable_transformProfile=hermes-stable:5928:18)

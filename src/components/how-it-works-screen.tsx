@@ -1,8 +1,6 @@
-import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import type { GestureResponderEvent, PressableProps, StyleProp, ViewStyle } from 'react-native';
-import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -12,6 +10,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FlowBackIcon } from '@/components/flow-back-icon';
+import { OrangeDash } from '@/components/orange-dash';
+import { PressableScale } from '@/components/pressable-scale';
+import { getFlowHorizontalPadding } from '@/theme/flow-layout';
+import { primaryCtaButtonStyle, primaryCtaTextStyle } from '@/theme/primary-cta';
 import { appFontFamily } from '@/theme/typography';
 import howItWorksBackground from '../../assets/how-it-works-bg.jpg';
 import loadMoneyArtwork from '../../assets/how-it-works-load-money.jpg';
@@ -42,7 +45,6 @@ const steps = [
   },
 ] as const;
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const animatedEaseOut = Easing.bezier(0.23, 1, 0.32, 1);
 
 type StepMetrics = {
@@ -51,52 +53,6 @@ type StepMetrics = {
   titleSize: number;
   subtitleSize: number;
 };
-
-type PolishedPressableProps = PressableProps & {
-  haptic?: Haptics.ImpactFeedbackStyle | false;
-  pressScale?: number;
-  style?: StyleProp<ViewStyle>;
-};
-
-function triggerHaptic(style: Haptics.ImpactFeedbackStyle) {
-  void Haptics.impactAsync(style).catch(() => undefined);
-}
-
-function PolishedPressable({
-  haptic = Haptics.ImpactFeedbackStyle.Light,
-  onPressIn,
-  onPressOut,
-  pressScale = 0.97,
-  style,
-  ...props
-}: PolishedPressableProps) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-
-  function handlePressIn(event: GestureResponderEvent) {
-    scale.value = withTiming(pressScale, { duration: 120, easing: animatedEaseOut });
-    if (haptic) {
-      triggerHaptic(haptic);
-    }
-    onPressIn?.(event);
-  }
-
-  function handlePressOut(event: GestureResponderEvent) {
-    scale.value = withTiming(1, { duration: 150, easing: animatedEaseOut });
-    onPressOut?.(event);
-  }
-
-  return (
-    <AnimatedPressable
-      {...props}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      style={[style, animatedStyle]}
-    />
-  );
-}
 
 function StepArtwork({ step, artworkSize }: { step: (typeof steps)[number]; artworkSize: number }) {
   return (
@@ -178,7 +134,7 @@ export function HowItWorksScreen({
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const compact = height < 820;
-  const horizontalPadding = Math.max(32, width * 0.085);
+  const horizontalPadding = getFlowHorizontalPadding(width);
   const backgroundHeight = height * 0.96;
   const cardMetrics: StepMetrics = {
     artworkSize: compact ? 96 : 100,
@@ -189,7 +145,7 @@ export function HowItWorksScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" translucent backgroundColor="transparent" />
+      <StatusBar style="dark" />
       <Image
         fadeDuration={0}
         source={howItWorksBackground}
@@ -220,25 +176,22 @@ export function HowItWorksScreen({
           },
         ]}>
         <View style={styles.nav}>
-          <PolishedPressable
+          <PressableScale
             accessibilityRole="button"
-            haptic={Haptics.ImpactFeedbackStyle.Light}
+            haptic="impact"
             hitSlop={12}
             onPress={onBack}
             pressScale={0.92}
             style={styles.navButton}>
-            <View style={styles.backGlyph}>
-              <View style={styles.backStrokeTop} />
-              <View style={styles.backStrokeBottom} />
-            </View>
-          </PolishedPressable>
+            <FlowBackIcon />
+          </PressableScale>
         </View>
 
         <View style={[styles.header, { marginTop: compact ? 24 : 34 }]}>
           <Text style={[styles.title, { fontSize: Math.min(42, width * 0.107) }]}>
             How it works
           </Text>
-          <View style={styles.redDash} />
+          <OrangeDash variant="section" style={styles.orangeDash} />
         </View>
 
         <View style={[styles.cards, { gap: compact ? 13 : 14, marginTop: compact ? 20 : 26 }]}>
@@ -247,9 +200,9 @@ export function HowItWorksScreen({
           ))}
         </View>
 
-        <PolishedPressable
+        <PressableScale
           accessibilityRole="button"
-          haptic={Haptics.ImpactFeedbackStyle.Medium}
+          haptic="impact"
           onPress={onContinue}
           pressScale={0.975}
           style={[
@@ -261,9 +214,8 @@ export function HowItWorksScreen({
               height: compact ? 62 : 68,
             },
           ]}>
-          <View style={styles.continueHighlight} />
           <Text style={styles.continueText}>Continue</Text>
-        </PolishedPressable>
+        </PressableScale>
       </View>
     </View>
   );
@@ -293,35 +245,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   navButton: {
-    width: 46,
-    height: 46,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backGlyph: {
-    width: 25,
-    height: 25,
-    justifyContent: 'center',
-  },
-  backStrokeTop: {
-    position: 'absolute',
-    left: 3,
-    top: 5,
-    width: 17,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: '#061d4b',
-    transform: [{ rotate: '-45deg' }],
-  },
-  backStrokeBottom: {
-    position: 'absolute',
-    left: 3,
-    bottom: 5,
-    width: 17,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: '#061d4b',
-    transform: [{ rotate: '45deg' }],
   },
   skipText: {
     color: '#061d4b',
@@ -340,14 +267,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
     lineHeight: 50,
   },
-  redDash: {
-    width: 64,
-    height: 5,
-    marginTop: 13,
+  orangeDash: {
+    marginTop: 7,
     marginLeft: 2,
-    borderRadius: 999,
-    backgroundColor: '#d82017',
-    transform: [{ scaleX: 1.22 }],
   },
   cards: {},
   card: {
@@ -423,29 +345,10 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     position: 'absolute',
-    borderRadius: 38,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.42)',
-    backgroundColor: '#002b67',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    boxShadow: '0 13px 24px rgba(0, 24, 62, 0.38)',
-  },
-  continueHighlight: {
-    position: 'absolute',
-    left: 28,
-    right: 28,
-    top: 2,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.32)',
+    ...primaryCtaButtonStyle,
   },
   continueText: {
-    color: '#ffffff',
-    fontSize: 25,
-    fontFamily: appFontFamily,
-    fontWeight: '700',
-    letterSpacing: 0,
-    lineHeight: 34,
+    ...primaryCtaTextStyle,
+    lineHeight: 30,
   },
 });

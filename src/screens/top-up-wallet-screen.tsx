@@ -1,34 +1,31 @@
 import { StatusBar } from 'expo-status-bar';
-import * as Haptics from 'expo-haptics';
-import { useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 import {
-  Animated,
   Image,
   ImageBackground,
   InputAccessoryView,
   Keyboard,
   Platform,
-  Pressable,
-  type PressableProps,
   StyleSheet,
   Text,
   TextInput,
   View,
-  type StyleProp,
-  type ViewStyle,
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FlowBackIcon } from '@/components/flow-back-icon';
+import { OrangeDash } from '@/components/orange-dash';
+import { PressableScale } from '@/components/pressable-scale';
+import { amountOptions, exchangeRate, useTopUpAmount } from '@/hooks/use-top-up-amount';
+import { googleIconUrl } from '@/navigation/screen-assets';
+import { getFlowHorizontalPadding } from '@/theme/flow-layout';
+import { primaryCtaButtonStyle, primaryCtaTextStyle } from '@/theme/primary-cta';
 import { appBoldFontFamily, appFontFamily, appHeavyFontFamily } from '@/theme/typography';
 import exchangeArtwork from '../../assets/top-up-exchange-art.jpg';
 import topUpBackground from '../../assets/top-up-wallet-bg.jpg';
 
-const exchangeRate = 133.2;
-const amountOptions = [10, 25, 50, 100] as const;
-const googleIconUrl = 'https://www.gstatic.com/images/branding/product/1x/gsa_512dp.png';
 const amountInputAccessoryId = 'top-up-amount-input-accessory';
-const AnimatedPressableBase = Animated.createAnimatedComponent(Pressable);
 
 const paymentOptions = [
   { id: 'apple', title: 'Apple Pay' },
@@ -38,80 +35,6 @@ const paymentOptions = [
 ] as const;
 
 type PaymentOptionId = (typeof paymentOptions)[number]['id'];
-type AnimatedPressableProps = PressableProps & {
-  haptic?: 'impact' | 'selection';
-  style?: StyleProp<ViewStyle>;
-};
-
-function formatNpr(amount: number) {
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function cleanUsdInput(value: string) {
-  const cleaned = value.replace(/[^0-9.]/g, '');
-  const [rawWhole, ...rest] = cleaned.split('.');
-  const whole = rawWhole ?? '';
-  const decimal = rest.join('').slice(0, 2);
-
-  return rest.length > 0 ? `${whole}.${decimal}` : whole;
-}
-
-function formatUsdInput(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
-}
-
-function triggerHaptic(type: AnimatedPressableProps['haptic'] = 'selection') {
-  if (Platform.OS === 'web') {
-    return;
-  }
-
-  if (type === 'impact') {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    return;
-  }
-
-  void Haptics.selectionAsync();
-}
-
-function AnimatedPressable({
-  haptic = 'selection',
-  onPress,
-  onPressIn,
-  onPressOut,
-  style,
-  ...props
-}: AnimatedPressableProps) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  function animateTo(value: number) {
-    Animated.timing(scale, {
-      duration: value < 1 ? 90 : 140,
-      toValue: value,
-      useNativeDriver: true,
-    }).start();
-  }
-
-  return (
-    <AnimatedPressableBase
-      {...props}
-      onPress={(event) => {
-        triggerHaptic(haptic);
-        onPress?.(event);
-      }}
-      onPressIn={(event) => {
-        animateTo(0.97);
-        onPressIn?.(event);
-      }}
-      onPressOut={(event) => {
-        animateTo(1);
-        onPressOut?.(event);
-      }}
-      style={[style, { transform: [{ scale }] }]}
-    />
-  );
-}
 
 export function TopUpWalletRoute() {
   return (
@@ -128,42 +51,20 @@ export function TopUpWalletScreen({
   onBack?: () => void;
   onComplete?: () => void;
 }) {
-  const [usdInput, setUsdInput] = useState('50');
+  const { formattedNpr, selectUsdPreset, updateNprInput, updateUsdInput, usdAmount, usdInput } =
+    useTopUpAmount();
   const [selectedPaymentId, setSelectedPaymentId] = useState<PaymentOptionId>('apple');
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const isShort = height < 780;
-  const horizontalPadding = Math.max(22, Math.min(28, width * 0.061));
+  const horizontalPadding = getFlowHorizontalPadding(width);
   const titleSize = Math.min(isShort ? 31 : 35, width * 0.084);
   const titleWidth = Math.min(238, width * 0.58);
-  const usdAmount = Number.parseFloat(usdInput) || 0;
-  const nprAmount = useMemo(() => Math.round(usdAmount * exchangeRate), [usdAmount]);
-  const formattedNpr = formatNpr(nprAmount);
   const usdInputWidth = Math.max(42, Math.min(90, usdInput.length * 20));
-
-  function handleAmountPreset(amount: (typeof amountOptions)[number]) {
-    setUsdInput(String(amount));
-  }
-
-  function handleUsdChange(value: string) {
-    setUsdInput(cleanUsdInput(value));
-  }
-
-  function handleNprChange(value: string) {
-    const numericValue = value.replace(/\D/g, '');
-    const nextNpr = Number.parseInt(numericValue, 10);
-
-    if (!numericValue || !Number.isFinite(nextNpr)) {
-      setUsdInput('');
-      return;
-    }
-
-    setUsdInput(formatUsdInput(nextNpr / exchangeRate));
-  }
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" translucent backgroundColor="transparent" />
+      <StatusBar style="dark" />
 
       <ImageBackground
         fadeDuration={0}
@@ -181,12 +82,13 @@ export function TopUpWalletScreen({
             },
           ]}>
           <View style={styles.header}>
-            <AnimatedPressable
+            <PressableScale
               accessibilityRole="button"
+              haptic="selection"
               onPress={onBack}
               style={styles.backButton}>
-              <BackIcon />
-            </AnimatedPressable>
+              <FlowBackIcon />
+            </PressableScale>
 
             <View style={styles.balancePill}>
               <WalletIcon />
@@ -208,7 +110,7 @@ export function TopUpWalletScreen({
                 style={[styles.title, { fontSize: titleSize, maxWidth: titleWidth }]}>
                 Top up wallet
               </Text>
-              <View style={styles.redSwoosh} />
+              <OrangeDash variant="compact" style={styles.orangeDash} />
               <Text selectable style={styles.subtitle}>
                 Ready to scan and pay
               </Text>
@@ -224,11 +126,11 @@ export function TopUpWalletScreen({
               const selected = amount === usdAmount;
 
               return (
-                <AnimatedPressable
+                <PressableScale
                   key={amount}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  onPress={() => handleAmountPreset(amount)}
+                  onPress={() => selectUsdPreset(amount)}
                   style={[styles.amountChip, selected && styles.amountChipSelected]}>
                   {selected ? (
                     <View pointerEvents="none" style={styles.selectedAmountAccent}>
@@ -242,7 +144,7 @@ export function TopUpWalletScreen({
                     style={[styles.amountText, selected && styles.amountTextSelected]}>
                     ${amount}
                   </Text>
-                </AnimatedPressable>
+                </PressableScale>
               );
             })}
           </View>
@@ -268,7 +170,7 @@ export function TopUpWalletScreen({
                   inputMode="decimal"
                   inputAccessoryViewID={amountInputAccessoryId}
                   keyboardType="decimal-pad"
-                  onChangeText={handleUsdChange}
+                  onChangeText={updateUsdInput}
                   onSubmitEditing={Keyboard.dismiss}
                   returnKeyType="done"
                   showSoftInputOnFocus
@@ -299,7 +201,7 @@ export function TopUpWalletScreen({
                   inputMode="numeric"
                   inputAccessoryViewID={amountInputAccessoryId}
                   keyboardType="number-pad"
-                  onChangeText={handleNprChange}
+                  onChangeText={updateNprInput}
                   onSubmitEditing={Keyboard.dismiss}
                   returnKeyType="done"
                   showSoftInputOnFocus
@@ -314,7 +216,7 @@ export function TopUpWalletScreen({
               <View style={styles.rateLeft}>
                 <RefreshIcon />
                 <Text selectable style={styles.rateText}>
-                  1 USD = 133.20 NPR
+                  1 USD = {exchangeRate.toFixed(2)} NPR
                 </Text>
               </View>
               <View style={styles.rateRight}>
@@ -336,7 +238,7 @@ export function TopUpWalletScreen({
 
               return (
                 <View key={option.id}>
-                  <AnimatedPressable
+                  <PressableScale
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     onPress={() => setSelectedPaymentId(option.id)}
@@ -346,7 +248,7 @@ export function TopUpWalletScreen({
                       {option.title}
                     </Text>
                     <PaymentTrailing selected={selected} />
-                  </AnimatedPressable>
+                  </PressableScale>
                   {index < paymentOptions.length - 1 ? (
                     <View style={styles.paymentDivider} />
                   ) : null}
@@ -366,7 +268,7 @@ export function TopUpWalletScreen({
             paddingBottom: Math.max(insets.bottom + 14, 26),
           },
         ]}>
-        <AnimatedPressable
+        <PressableScale
           accessibilityRole="button"
           haptic="impact"
           onPress={onComplete}
@@ -375,31 +277,21 @@ export function TopUpWalletScreen({
           <Text selectable style={styles.ctaText}>
             Add NPR {formattedNpr}
           </Text>
-        </AnimatedPressable>
+        </PressableScale>
       </View>
 
       {Platform.OS === 'ios' ? (
         <InputAccessoryView nativeID={amountInputAccessoryId}>
           <View style={styles.keyboardAccessory}>
-            <AnimatedPressable
+            <PressableScale
               accessibilityRole="button"
               onPress={Keyboard.dismiss}
               style={styles.keyboardDoneButton}>
               <Text style={styles.keyboardDoneText}>Done</Text>
-            </AnimatedPressable>
+            </PressableScale>
           </View>
         </InputAccessoryView>
       ) : null}
-    </View>
-  );
-}
-
-function BackIcon() {
-  return (
-    <View style={styles.backIcon}>
-      <View style={styles.backStem} />
-      <View style={[styles.backArm, styles.backArmTop]} />
-      <View style={[styles.backArm, styles.backArmBottom]} />
     </View>
   );
 }
@@ -520,7 +412,12 @@ function PaymentTrailing({ selected }: { selected?: boolean }) {
     );
   }
 
-  return <Text style={styles.chevron}>{'>'}</Text>;
+  return (
+    <View style={styles.chevronWrap}>
+      <View style={[styles.chevronStroke, styles.chevronStrokeTop]} />
+      <View style={[styles.chevronStroke, styles.chevronStrokeBottom]} />
+    </View>
+  );
 }
 
 const navy = '#061c4a';
@@ -552,39 +449,12 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    left: -6,
+    left: 0,
     top: 0,
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  backIcon: {
-    width: 34,
-    height: 28,
-    justifyContent: 'center',
-  },
-  backStem: {
-    width: 34,
-    height: 4,
-    borderRadius: 4,
-    backgroundColor: navy,
-  },
-  backArm: {
-    position: 'absolute',
-    left: -2,
-    width: 18,
-    height: 4,
-    borderRadius: 4,
-    backgroundColor: navy,
-  },
-  backArmTop: {
-    top: 6,
-    transform: [{ rotate: '-45deg' }],
-  },
-  backArmBottom: {
-    bottom: 6,
-    transform: [{ rotate: '45deg' }],
   },
   balancePill: {
     position: 'absolute',
@@ -672,13 +542,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
     lineHeight: 42,
   },
-  redSwoosh: {
-    width: 38,
-    height: 3,
+  orangeDash: {
     marginLeft: 1,
-    borderRadius: 999,
-    backgroundColor: red,
-    transform: [{ skewX: '-18deg' }],
   },
   subtitle: {
     color: '#3a4d66',
@@ -1124,12 +989,28 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#0d3974',
   },
-  chevron: {
-    color: navy,
-    fontFamily: appBoldFontFamily,
-    fontSize: 23,
-    fontWeight: '600',
-    lineHeight: 31,
+  chevronWrap: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.72,
+  },
+  chevronStroke: {
+    position: 'absolute',
+    left: 8,
+    width: 10,
+    height: 2.5,
+    borderRadius: 999,
+    backgroundColor: navy,
+  },
+  chevronStrokeTop: {
+    top: 8,
+    transform: [{ rotate: '45deg' }],
+  },
+  chevronStrokeBottom: {
+    bottom: 8,
+    transform: [{ rotate: '-45deg' }],
   },
   rateBadge: {
     alignSelf: 'flex-start',
@@ -1204,20 +1085,10 @@ const styles = StyleSheet.create({
   ctaButton: {
     minHeight: 56,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.46)',
-    borderRadius: 999,
-    backgroundColor: '#052f69',
-    boxShadow: '0 16px 34px rgba(0, 34, 84, 0.35)',
+    ...primaryCtaButtonStyle,
   },
   ctaText: {
-    color: '#ffffff',
-    fontFamily: appHeavyFontFamily,
-    fontSize: 21,
-    fontWeight: '700',
-    letterSpacing: 0,
+    ...primaryCtaTextStyle,
   },
 });

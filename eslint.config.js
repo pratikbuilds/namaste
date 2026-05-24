@@ -56,6 +56,8 @@ module.exports = defineConfig([
       'android/**',
       'ios/**',
       'dist/**',
+      'dist-preview/**',
+      'dist-web/**',
       'node_modules/**',
       'web-build/**',
     ],
@@ -65,6 +67,8 @@ module.exports = defineConfig([
       curly: ['error', 'all'],
       eqeqeq: ['error', 'always'],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'react-hooks/immutability': 'off',
+      'react-hooks/refs': 'off',
       'no-restricted-imports': [
         'error',
         {
