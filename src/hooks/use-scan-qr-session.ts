@@ -7,6 +7,20 @@ export type ScanQrResult = {
   data: string;
 };
 
+export type ScanQrPreview = {
+  amount: string;
+  merchant: string;
+  network: string;
+};
+
+function buildScanPreview(data: string): ScanQrPreview {
+  return {
+    amount: 'NPR 1,250',
+    merchant: data.includes('fonepay') ? 'FonePay merchant' : 'Himalayan Cafe',
+    network: 'FonePay QR',
+  };
+}
+
 export function useScanQrSession() {
   const [permission, requestPermission] = useCameraPermissions();
   const [torchEnabled, setTorchEnabled] = useState(false);
@@ -26,6 +40,7 @@ export function useScanQrSession() {
     handleBarcodeScanned,
     hasCameraPermission,
     requestPermission,
+    scanPreview: scannedData ? buildScanPreview(scannedData) : undefined,
     scannedData,
     toggleTorch: () => setTorchEnabled((value) => !value),
     torchEnabled,

@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { FlowScreenTransition } from '@/components/flow-screen-transition';
 import { HowItWorksScreen } from '@/components/how-it-works-screen';
 import { useAppFlow } from '@/navigation/app-flow';
 import { OnboardingScreen } from '@/screens/onboarding-screen';
@@ -15,16 +16,27 @@ export default function App() {
   return (
     <SafeAreaProvider>
       {flow.currentScreen === 'onboarding' ? (
-        <OnboardingScreen onContinue={flow.showHowItWorks} />
+        <FlowScreenTransition>
+          <OnboardingScreen onContinue={flow.showHowItWorks} />
+        </FlowScreenTransition>
       ) : null}
       {flow.currentScreen === 'how-it-works' ? (
-        <HowItWorksScreen onBack={flow.goBackToOnboarding} onContinue={flow.showTopUpWallet} />
+        <FlowScreenTransition>
+          <HowItWorksScreen onBack={flow.goBackToOnboarding} onContinue={flow.showTopUpWallet} />
+        </FlowScreenTransition>
       ) : null}
       {flow.currentScreen === 'top-up-wallet' ? (
-        <TopUpWalletScreen onBack={flow.goBackToHowItWorks} onComplete={flow.goHome} />
+        <FlowScreenTransition>
+          <TopUpWalletScreen onBack={flow.goBackToHowItWorks} onComplete={flow.goHome} />
+        </FlowScreenTransition>
       ) : null}
       {flow.currentScreen === 'home' ? (
-        <WalletHomeScreen onScanQr={() => router.push('/scan-qr')} onTopUp={flow.showTopUpWallet} />
+        <FlowScreenTransition>
+          <WalletHomeScreen
+            onScanQr={() => router.push('/scan-qr')}
+            onTopUp={flow.showTopUpWallet}
+          />
+        </FlowScreenTransition>
       ) : null}
     </SafeAreaProvider>
   );

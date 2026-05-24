@@ -5,12 +5,14 @@ import {
   InputAccessoryView,
   Keyboard,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
   useWindowDimensions,
 } from 'react-native';
+import Animated, { Easing, FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FlowBackIcon } from '@/components/flow-back-icon';
@@ -44,6 +46,7 @@ export function TopUpWalletScreen({
   const topUp = useTopUpFlow();
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
+  const reduceMotion = useReducedMotion();
   const isShort = height < 780;
   const horizontalPadding = getFlowHorizontalPadding(width);
   const titleSize = Math.min(isShort ? 31 : 35, width * 0.084);
@@ -60,16 +63,18 @@ export function TopUpWalletScreen({
         resizeMode="cover"
         style={styles.background}
         imageStyle={styles.backgroundImage}>
-        <View
-          style={[
+        <ScrollView
+          bounces={false}
+          contentContainerStyle={[
             styles.content,
             {
               paddingTop: Math.max(insets.top + (isShort ? 10 : 16), isShort ? 40 : 50),
               paddingHorizontal: horizontalPadding,
-              paddingBottom: Math.max(insets.bottom + 92, 104),
+              paddingBottom: Math.max(insets.bottom + 124, 142),
             },
-          ]}>
-          <View style={styles.header}>
+          ]}
+          showsVerticalScrollIndicator={false}>
+          <View style={[styles.header, isShort && styles.headerCompact]}>
             <PressableScale
               accessibilityRole="button"
               haptic="selection"
@@ -121,7 +126,7 @@ export function TopUpWalletScreen({
                   onPress={() => topUp.selectUsdPreset(amount)}
                   style={[styles.amountChip, selected && styles.amountChipSelected]}>
                   {selected ? (
-                    <View pointerEvents="none" style={styles.selectedAmountAccent}>
+                    <View style={styles.selectedAmountAccent}>
                       <View style={[styles.amountSpark, styles.amountSparkLeft]} />
                       <View style={[styles.amountSpark, styles.amountSparkCenter]} />
                       <View style={[styles.amountSpark, styles.amountSparkRight]} />
@@ -137,7 +142,7 @@ export function TopUpWalletScreen({
             })}
           </View>
 
-          <View style={styles.exchangeCard}>
+          <View style={[styles.exchangeCard, isShort && styles.exchangeCardCompact]}>
             <Image
               fadeDuration={0}
               source={exchangeArtwork}
@@ -171,7 +176,7 @@ export function TopUpWalletScreen({
               </View>
             </View>
 
-            <View pointerEvents="none" style={styles.cardDashLine} />
+            <View style={styles.cardDashLine} />
             <View style={styles.exchangeArrow}>
               <ArrowIcon />
             </View>
@@ -203,9 +208,15 @@ export function TopUpWalletScreen({
             <View style={styles.rateRow}>
               <View style={styles.rateLeft}>
                 <RefreshIcon />
-                <Text selectable style={styles.rateText}>
+                <Animated.Text
+                  key={topUp.quoteLabel}
+                  selectable
+                  {...(reduceMotion
+                    ? {}
+                    : { entering: FadeIn.duration(130).easing(Easing.out(Easing.cubic)) })}
+                  style={styles.rateText}>
                   {topUp.quoteLabel}
-                </Text>
+                </Animated.Text>
               </View>
               <View style={styles.rateRight}>
                 <View style={styles.greenDot} />
@@ -230,7 +241,11 @@ export function TopUpWalletScreen({
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     onPress={() => topUp.setSelectedPaymentId(option.id)}
-                    style={[styles.paymentRow, selected && styles.paymentRowSelected]}>
+                    style={[
+                      styles.paymentRow,
+                      isShort && styles.paymentRowCompact,
+                      selected && styles.paymentRowSelected,
+                    ]}>
                     <PaymentMark id={option.id} />
                     <Text selectable style={styles.paymentTitle}>
                       {option.title}
@@ -244,11 +259,10 @@ export function TopUpWalletScreen({
               );
             })}
           </View>
-        </View>
+        </ScrollView>
       </ImageBackground>
 
       <View
-        pointerEvents="box-none"
         style={[
           styles.bottomBar,
           {
@@ -264,9 +278,15 @@ export function TopUpWalletScreen({
           onPress={topUp.canComplete ? onComplete : undefined}
           style={[styles.ctaButton, !topUp.canComplete && styles.ctaButtonDisabled]}>
           <WalletIcon light />
-          <Text selectable style={styles.ctaText}>
+          <Animated.Text
+            key={topUp.ctaLabel}
+            selectable
+            {...(reduceMotion
+              ? {}
+              : { entering: FadeIn.duration(130).easing(Easing.out(Easing.cubic)) })}
+            style={styles.ctaText}>
             {topUp.ctaLabel}
-          </Text>
+          </Animated.Text>
         </PressableScale>
       </View>
 
@@ -431,11 +451,13 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   content: {
-    flex: 1,
     gap: 10,
   },
   header: {
     height: 134,
+  },
+  headerCompact: {
+    height: 112,
   },
   backButton: {
     position: 'absolute',
@@ -567,6 +589,7 @@ const styles = StyleSheet.create({
   },
   selectedAmountAccent: {
     position: 'absolute',
+    pointerEvents: 'none',
     top: -20,
     alignSelf: 'center',
     width: 34,
@@ -621,6 +644,11 @@ const styles = StyleSheet.create({
     paddingBottom: 9,
     backgroundColor: 'rgba(255, 249, 238, 0.97)',
     boxShadow: '0 8px 18px rgba(42, 44, 55, 0.06)',
+  },
+  exchangeCardCompact: {
+    minHeight: 174,
+    paddingTop: 12,
+    paddingBottom: 7,
   },
   exchangeArtwork: {
     position: 'absolute',
@@ -677,6 +705,7 @@ const styles = StyleSheet.create({
   },
   cardDashLine: {
     position: 'absolute',
+    pointerEvents: 'none',
     top: 78,
     left: 16,
     right: 16,
@@ -812,6 +841,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 17,
+  },
+  paymentRowCompact: {
+    minHeight: 38,
   },
   paymentRowSelected: {
     backgroundColor: 'rgba(226, 238, 252, 0.28)',
@@ -1043,6 +1075,7 @@ const styles = StyleSheet.create({
   },
   bottomBar: {
     position: 'absolute',
+    pointerEvents: 'box-none',
     right: 0,
     bottom: 0,
     left: 0,

@@ -1,7 +1,16 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import Animated, {
+  Easing,
+  FadeInUp,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OrangeDash } from '@/components/orange-dash';
@@ -14,7 +23,7 @@ import {
   type WalletHomeTab,
   type WalletTransactionIcon,
 } from '@/data/wallet-home';
-import { appColors, appSurfaces } from '@/theme/design';
+import { appColors, appMotion, appSurfaces } from '@/theme/design';
 import { appBoldFontFamily, appFontFamily, appHeavyFontFamily } from '@/theme/typography';
 import { triggerSelectionHaptic } from '@/utils/haptics';
 import walletBalanceArt from '../../assets/wallet-balance-art.png';
@@ -24,6 +33,47 @@ import walletSecurityArt from '../../assets/wallet-security-art.png';
 const navy = appColors.navy;
 const mutedInk = appColors.mutedInk;
 const softLine = appColors.softLine;
+
+function StaggeredSection({ children, index }: { children: ReactNode; index: number }) {
+  const reduceMotion = useReducedMotion();
+
+  return (
+    <Animated.View
+      {...(reduceMotion
+        ? {}
+        : {
+            entering: FadeInUp.delay(index * 45)
+              .duration(190)
+              .easing(Easing.out(Easing.cubic)),
+          })}>
+      {children}
+    </Animated.View>
+  );
+}
+
+function EmptyState({
+  icon,
+  title,
+  subtitle,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <View style={styles.emptyState}>
+      <View style={styles.emptyStateIcon}>
+        <Ionicons color="#0b4a94" name={icon} size={25} />
+      </View>
+      <Text selectable style={styles.emptyStateTitle}>
+        {title}
+      </Text>
+      <Text selectable style={styles.emptyStateSubtitle}>
+        {subtitle}
+      </Text>
+    </View>
+  );
+}
 
 function BalanceCard({ balance }: { balance: WalletHomeState['balance'] }) {
   return (
@@ -73,7 +123,6 @@ function ActionButton({
         onPress={onPress}
         style={styles.actionButton}>
         <View
-          pointerEvents="none"
           style={[
             StyleSheet.absoluteFillObject,
             styles.actionChrome,
@@ -186,6 +235,13 @@ function TransactionList({
           {index < transactions.length - 1 ? <View style={styles.transactionDivider} /> : null}
         </View>
       ))}
+      {transactions.length === 0 ? (
+        <EmptyState
+          icon="receipt-outline"
+          subtitle="Your QR payments will appear here once you start spending."
+          title="No transactions yet"
+        />
+      ) : null}
     </View>
   );
 }
@@ -217,6 +273,13 @@ function SavedPlaces({ savedPlaces }: { savedPlaces: WalletHomeState['savedPlace
           {index < savedPlaces.length - 1 ? <View style={styles.transactionDivider} /> : null}
         </View>
       ))}
+      {savedPlaces.length === 0 ? (
+        <EmptyState
+          icon="bookmark-outline"
+          subtitle="Save frequent merchant QRs and they will show up here."
+          title="No saved QR places"
+        />
+      ) : null}
     </View>
   );
 }
@@ -266,8 +329,33 @@ function BottomTabs({
   onTabPress: (tab: WalletHomeTab) => void;
   tabs: WalletHomeState['tabs'];
 }) {
+  const [barWidth, setBarWidth] = useState(0);
+  const reduceMotion = useReducedMotion();
+  const activeIndex = Math.max(
+    0,
+    tabs.findIndex((tab) => tab.id === activeTab)
+  );
+  const tabWidth = tabs.length > 0 ? barWidth / tabs.length : 0;
+  const activeX = useSharedValue(activeIndex * tabWidth);
+  const activeSurfaceStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: activeX.value }],
+    width: tabWidth,
+  }));
+
+  useEffect(() => {
+    activeX.value = reduceMotion
+      ? activeIndex * tabWidth
+      : withTiming(activeIndex * tabWidth, {
+          duration: 180,
+          easing: Easing.bezier(...appMotion.easeOut.easing),
+        });
+  }, [activeIndex, activeX, reduceMotion, tabWidth]);
+
   return (
-    <View style={styles.tabBar}>
+    <View onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} style={styles.tabBar}>
+      {barWidth > 0 ? (
+        <Animated.View style={[styles.activeTabSurface, activeSurfaceStyle]} />
+      ) : null}
       {tabs.map((tab) => (
         <PressableScale
           accessibilityRole="tab"
@@ -276,7 +364,7 @@ function BottomTabs({
           key={tab.id}
           onPress={() => onTabPress(tab.id)}
           pressScale={0.96}
-          style={[styles.tabItem, activeTab === tab.id && styles.activeTabItem]}>
+          style={styles.tabItem}>
           <Ionicons color={activeTab === tab.id ? navy : '#304e72'} name={tab.icon} size={27} />
           <Text selectable style={[styles.tabLabel, activeTab === tab.id && styles.activeTabLabel]}>
             {tab.label}
@@ -337,30 +425,38 @@ export function WalletHomeScreen({
 
         {activeTab === 'home' ? (
           <>
-            <BalanceCard balance={state.balance} />
+            <StaggeredSection index={0}>
+              <BalanceCard balance={state.balance} />
+            </StaggeredSection>
 
-            <View style={styles.actionsRow}>
-              <ActionButton
-                icon="line-scan"
-                kind="primary"
-                label="Scan QR"
-                onPress={onScanQr}
-                width={actionButtonWidth}
-              />
-              <ActionButton
-                icon="wallet-plus-outline"
-                kind="secondary"
-                label="Top up"
-                onPress={onTopUp}
-                width={actionButtonWidth}
-              />
-            </View>
+            <StaggeredSection index={1}>
+              <View style={styles.actionsRow}>
+                <ActionButton
+                  icon="line-scan"
+                  kind="primary"
+                  label="Scan QR"
+                  onPress={onScanQr}
+                  width={actionButtonWidth}
+                />
+                <ActionButton
+                  icon="wallet-plus-outline"
+                  kind="secondary"
+                  label="Top up"
+                  onPress={onTopUp}
+                  width={actionButtonWidth}
+                />
+              </View>
+            </StaggeredSection>
 
-            <TransactionList
-              onViewAll={() => selectTab('history')}
-              transactions={state.transactions}
-            />
-            <SecurityBanner />
+            <StaggeredSection index={2}>
+              <TransactionList
+                onViewAll={() => selectTab('history')}
+                transactions={state.transactions}
+              />
+            </StaggeredSection>
+            <StaggeredSection index={3}>
+              <SecurityBanner />
+            </StaggeredSection>
           </>
         ) : null}
         {activeTab === 'history' ? (
@@ -490,6 +586,7 @@ const styles = StyleSheet.create({
   actionChrome: {
     borderRadius: 24,
     borderCurve: 'continuous',
+    pointerEvents: 'none',
   },
   primaryAction: {
     backgroundColor: '#003f75',
@@ -617,6 +714,40 @@ const styles = StyleSheet.create({
   transactionDivider: {
     height: 1,
     backgroundColor: softLine,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 18,
+    gap: 7,
+  },
+  emptyStateIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(11, 74, 148, 0.1)',
+  },
+  emptyStateTitle: {
+    marginTop: 4,
+    color: navy,
+    fontFamily: appBoldFontFamily,
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0,
+    textAlign: 'center',
+  },
+  emptyStateSubtitle: {
+    maxWidth: 250,
+    color: mutedInk,
+    fontFamily: appFontFamily,
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   savedRow: {
     minHeight: 66,
@@ -752,15 +883,23 @@ const styles = StyleSheet.create({
     boxShadow: '0 15px 31px rgba(35, 63, 91, 0.2)',
   },
   tabItem: {
-    width: 70,
+    flex: 1,
     minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 1,
     borderRadius: 20,
     borderCurve: 'continuous',
+    zIndex: 2,
   },
-  activeTabItem: {
+  activeTabSurface: {
+    position: 'absolute',
+    pointerEvents: 'none',
+    top: 5,
+    bottom: 5,
+    left: 0,
+    borderRadius: 20,
+    borderCurve: 'continuous',
     backgroundColor: 'rgba(0, 88, 200, 0.08)',
   },
   tabLabel: {

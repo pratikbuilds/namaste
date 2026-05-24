@@ -100,7 +100,7 @@ export function OnboardingScreen({ onContinue }: { onContinue: () => void }) {
                 onContinue();
               }}
               style={styles.googleButton}>
-              <View pointerEvents="none" style={styles.googleButtonHighlight} />
+              <View style={styles.googleButtonHighlight} />
               <GoogleMark />
               <Text selectable style={styles.googleText}>
                 Continue with Google
@@ -232,6 +232,7 @@ const styles = StyleSheet.create({
   },
   googleButtonHighlight: {
     position: 'absolute',
+    pointerEvents: 'none',
     top: 2,
     right: 28,
     left: 28,

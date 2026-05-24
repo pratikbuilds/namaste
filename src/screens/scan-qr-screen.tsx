@@ -60,13 +60,20 @@ function CircleButton({ children, onPress }: { children: React.ReactNode; onPres
   );
 }
 
-function TorchButton({ onPress }: { onPress: () => void }) {
+function TorchButton({ active, onPress }: { active: boolean; onPress: () => void }) {
   return (
     <PressableScale accessibilityRole="button" haptic={false} onPress={onPress}>
-      <GlassView colorScheme="dark" glassEffectStyle="regular" style={styles.torchButton}>
-        <MaterialCommunityIcons color="#ffffff" name="flashlight" size={22} />
-        <Text selectable style={styles.torchLabel}>
-          Torch
+      <GlassView
+        colorScheme="dark"
+        glassEffectStyle="regular"
+        style={[styles.torchButton, active && styles.torchButtonActive]}>
+        <MaterialCommunityIcons
+          color={active ? '#ffd889' : '#ffffff'}
+          name="flashlight"
+          size={22}
+        />
+        <Text selectable style={[styles.torchLabel, active && styles.torchLabelActive]}>
+          {active ? 'On' : 'Torch'}
         </Text>
       </GlassView>
     </PressableScale>
@@ -143,6 +150,50 @@ function GalleryButton({ onPress }: { onPress: () => void }) {
   );
 }
 
+function ScanResultCard({
+  amount,
+  merchant,
+  network,
+  onContinue,
+}: {
+  amount: string;
+  merchant: string;
+  network: string;
+  onContinue: () => void;
+}) {
+  return (
+    <Animated.View
+      entering={FadeIn.duration(180).easing(Easing.out(Easing.cubic))}
+      style={styles.scanResultWrap}>
+      <GlassView colorScheme="dark" glassEffectStyle="regular" style={styles.scanResultCard}>
+        <View style={styles.scanResultIcon}>
+          <Ionicons color="#051f49" name="checkmark" size={22} />
+        </View>
+        <View style={styles.scanResultCopy}>
+          <Text selectable numberOfLines={1} style={styles.scanResultMerchant}>
+            {merchant}
+          </Text>
+          <Text selectable numberOfLines={1} style={styles.scanResultMeta}>
+            {network}
+          </Text>
+        </View>
+        <Text selectable numberOfLines={1} style={styles.scanResultAmount}>
+          {amount}
+        </Text>
+        <PressableScale
+          accessibilityRole="button"
+          haptic="impact"
+          onPress={onContinue}
+          style={styles.scanResultButton}>
+          <Text selectable style={styles.scanResultButtonText}>
+            Continue
+          </Text>
+        </PressableScale>
+      </GlassView>
+    </Animated.View>
+  );
+}
+
 export function ScanQrScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -166,7 +217,7 @@ export function ScanQrScreen() {
           style={styles.cameraPreview}
         />
       ) : null}
-      <View pointerEvents="none" style={styles.cameraScrim} />
+      <View style={styles.cameraScrim} />
 
       <View style={[styles.header, { paddingTop: insets.top + 58 }]}>
         <CircleButton
@@ -185,6 +236,7 @@ export function ScanQrScreen() {
           </Text>
         </View>
         <TorchButton
+          active={scanSession.torchEnabled}
           onPress={() => {
             triggerImpactHaptic();
             scanSession.toggleTorch();
@@ -199,15 +251,16 @@ export function ScanQrScreen() {
           </View>
 
           <View style={[styles.bottomContent, { paddingBottom: Math.max(insets.bottom + 34, 48) }]}>
-            <GalleryButton onPress={triggerSelectionHaptic} />
-            {scanSession.scannedData ? (
-              <GlassView colorScheme="dark" glassEffectStyle="regular" style={styles.detectedPill}>
-                <Ionicons color="#bfe4ff" name="checkmark-circle" size={18} />
-                <Text selectable numberOfLines={1} style={styles.detectedText}>
-                  QR detected
-                </Text>
-              </GlassView>
-            ) : null}
+            {scanSession.scanPreview ? (
+              <ScanResultCard
+                amount={scanSession.scanPreview.amount}
+                merchant={scanSession.scanPreview.merchant}
+                network={scanSession.scanPreview.network}
+                onContinue={() => router.push('/wallet')}
+              />
+            ) : (
+              <GalleryButton onPress={triggerSelectionHaptic} />
+            )}
           </View>
         </>
       ) : (
@@ -275,6 +328,7 @@ const styles = StyleSheet.create({
   },
   cameraScrim: {
     ...StyleSheet.absoluteFillObject,
+    pointerEvents: 'none',
     backgroundColor: 'rgba(0,0,0,0.34)',
   },
   header: {
@@ -334,12 +388,20 @@ const styles = StyleSheet.create({
     gap: 12,
     overflow: 'hidden',
   },
+  torchButtonActive: {
+    borderColor: 'rgba(255, 216, 137, 0.48)',
+    backgroundColor: 'rgba(177, 111, 21, 0.2)',
+    boxShadow: '0 0 18px rgba(255, 190, 93, 0.22)',
+  },
   torchLabel: {
     color: '#ffffff',
     fontFamily: appFontFamily,
     fontSize: 16,
     fontWeight: '500',
     letterSpacing: 0,
+  },
+  torchLabelActive: {
+    color: '#ffe0a1',
   },
   scanArea: {
     position: 'absolute',
@@ -413,18 +475,72 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: 0,
   },
-  detectedPill: {
-    height: 38,
-    maxWidth: 180,
-    borderRadius: 19,
-    paddingHorizontal: 14,
+  scanResultWrap: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  scanResultCard: {
+    width: '100%',
+    minHeight: 92,
+    borderRadius: 28,
+    paddingVertical: 14,
+    paddingHorizontal: 15,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
-    backgroundColor: 'rgba(0,0,0,0.28)',
+    borderColor: 'rgba(255,255,255,0.28)',
+    backgroundColor: 'rgba(0,0,0,0.34)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
     overflow: 'hidden',
+  },
+  scanResultIcon: {
+    width: 39,
+    height: 39,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#bfe4ff',
+  },
+  scanResultCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  scanResultMerchant: {
+    color: '#ffffff',
+    fontFamily: appBoldFontFamily,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: 0,
+  },
+  scanResultMeta: {
+    color: 'rgba(255,255,255,0.72)',
+    fontFamily: appFontFamily,
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0,
+  },
+  scanResultAmount: {
+    maxWidth: 92,
+    color: '#ffffff',
+    fontFamily: appBoldFontFamily,
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0,
+  },
+  scanResultButton: {
+    minHeight: 38,
+    borderRadius: 19,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  scanResultButtonText: {
+    color: navy,
+    fontFamily: appBoldFontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0,
   },
   detectedText: {
     color: '#ffffff',

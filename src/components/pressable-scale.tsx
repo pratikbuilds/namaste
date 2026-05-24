@@ -30,7 +30,7 @@ export function PressableScale({
   onPress,
   onPressIn,
   onPressOut,
-  pressScale = 0.97,
+  pressScale = appMotion.pressScale,
   style,
   ...props
 }: PressableScaleProps) {
