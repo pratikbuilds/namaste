@@ -1,5 +1,4 @@
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
 import {
   Image,
   ImageBackground,
@@ -17,7 +16,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { FlowBackIcon } from '@/components/flow-back-icon';
 import { OrangeDash } from '@/components/orange-dash';
 import { PressableScale } from '@/components/pressable-scale';
-import { amountOptions, exchangeRate, useTopUpAmount } from '@/hooks/use-top-up-amount';
+import { amountOptions, type PaymentOptionId, useTopUpFlow } from '@/hooks/use-top-up-amount';
 import { googleIconUrl } from '@/navigation/screen-assets';
 import { getFlowHorizontalPadding } from '@/theme/flow-layout';
 import { primaryCtaButtonStyle, primaryCtaTextStyle } from '@/theme/primary-cta';
@@ -26,15 +25,6 @@ import exchangeArtwork from '../../assets/top-up-exchange-art.jpg';
 import topUpBackground from '../../assets/top-up-wallet-bg.jpg';
 
 const amountInputAccessoryId = 'top-up-amount-input-accessory';
-
-const paymentOptions = [
-  { id: 'apple', title: 'Apple Pay' },
-  { id: 'google', title: 'Google Pay' },
-  { id: 'card', title: 'Debit or credit card' },
-  { id: 'more', title: 'More payment options' },
-] as const;
-
-type PaymentOptionId = (typeof paymentOptions)[number]['id'];
 
 export function TopUpWalletRoute() {
   return (
@@ -51,16 +41,14 @@ export function TopUpWalletScreen({
   onBack?: () => void;
   onComplete?: () => void;
 }) {
-  const { formattedNpr, selectUsdPreset, updateNprInput, updateUsdInput, usdAmount, usdInput } =
-    useTopUpAmount();
-  const [selectedPaymentId, setSelectedPaymentId] = useState<PaymentOptionId>('apple');
+  const topUp = useTopUpFlow();
   const insets = useSafeAreaInsets();
   const { height, width } = useWindowDimensions();
   const isShort = height < 780;
   const horizontalPadding = getFlowHorizontalPadding(width);
   const titleSize = Math.min(isShort ? 31 : 35, width * 0.084);
   const titleWidth = Math.min(238, width * 0.58);
-  const usdInputWidth = Math.max(42, Math.min(90, usdInput.length * 20));
+  const usdInputWidth = Math.max(42, Math.min(90, topUp.usdInput.length * 20));
 
   return (
     <View style={styles.root}>
@@ -123,14 +111,14 @@ export function TopUpWalletScreen({
 
           <View style={styles.amountGrid}>
             {amountOptions.map((amount) => {
-              const selected = amount === usdAmount;
+              const selected = amount === topUp.usdAmount;
 
               return (
                 <PressableScale
                   key={amount}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  onPress={() => selectUsdPreset(amount)}
+                  onPress={() => topUp.selectUsdPreset(amount)}
                   style={[styles.amountChip, selected && styles.amountChipSelected]}>
                   {selected ? (
                     <View pointerEvents="none" style={styles.selectedAmountAccent}>
@@ -170,12 +158,12 @@ export function TopUpWalletScreen({
                   inputMode="decimal"
                   inputAccessoryViewID={amountInputAccessoryId}
                   keyboardType="decimal-pad"
-                  onChangeText={updateUsdInput}
+                  onChangeText={topUp.updateUsdInput}
                   onSubmitEditing={Keyboard.dismiss}
                   returnKeyType="done"
                   showSoftInputOnFocus
                   style={[styles.usdInput, { width: usdInputWidth }]}
-                  value={usdInput}
+                  value={topUp.usdInput}
                 />
                 <Text selectable style={styles.usdCode}>
                   USD
@@ -201,12 +189,12 @@ export function TopUpWalletScreen({
                   inputMode="numeric"
                   inputAccessoryViewID={amountInputAccessoryId}
                   keyboardType="number-pad"
-                  onChangeText={updateNprInput}
+                  onChangeText={topUp.updateNprInput}
                   onSubmitEditing={Keyboard.dismiss}
                   returnKeyType="done"
                   showSoftInputOnFocus
                   style={styles.nprInput}
-                  value={formattedNpr}
+                  value={topUp.formattedNpr}
                 />
               </View>
             </View>
@@ -216,7 +204,7 @@ export function TopUpWalletScreen({
               <View style={styles.rateLeft}>
                 <RefreshIcon />
                 <Text selectable style={styles.rateText}>
-                  1 USD = {exchangeRate.toFixed(2)} NPR
+                  {topUp.quoteLabel}
                 </Text>
               </View>
               <View style={styles.rateRight}>
@@ -233,15 +221,15 @@ export function TopUpWalletScreen({
           </Text>
 
           <View style={styles.paymentCard}>
-            {paymentOptions.map((option, index) => {
-              const selected = option.id === selectedPaymentId;
+            {topUp.paymentOptions.map((option, index) => {
+              const selected = option.id === topUp.selectedPaymentId;
 
               return (
                 <View key={option.id}>
                   <PressableScale
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
-                    onPress={() => setSelectedPaymentId(option.id)}
+                    onPress={() => topUp.setSelectedPaymentId(option.id)}
                     style={[styles.paymentRow, selected && styles.paymentRowSelected]}>
                     <PaymentMark id={option.id} />
                     <Text selectable style={styles.paymentTitle}>
@@ -249,7 +237,7 @@ export function TopUpWalletScreen({
                     </Text>
                     <PaymentTrailing selected={selected} />
                   </PressableScale>
-                  {index < paymentOptions.length - 1 ? (
+                  {index < topUp.paymentOptions.length - 1 ? (
                     <View style={styles.paymentDivider} />
                   ) : null}
                 </View>
@@ -270,12 +258,13 @@ export function TopUpWalletScreen({
         ]}>
         <PressableScale
           accessibilityRole="button"
+          accessibilityState={{ disabled: !topUp.canComplete }}
           haptic="impact"
-          onPress={onComplete}
+          onPress={topUp.canComplete ? onComplete : undefined}
           style={styles.ctaButton}>
           <WalletIcon light />
           <Text selectable style={styles.ctaText}>
-            Add NPR {formattedNpr}
+            {topUp.ctaLabel}
           </Text>
         </PressableScale>
       </View>

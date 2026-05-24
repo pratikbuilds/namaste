@@ -1,9 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView } from 'expo-camera';
 import { GlassView } from 'expo-glass-effect';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
@@ -17,8 +17,9 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale } from '@/components/pressable-scale';
+import { useScanQrSession } from '@/hooks/use-scan-qr-session';
 import { appBoldFontFamily, appFontFamily } from '@/theme/typography';
-import { triggerImpactHaptic, triggerSelectionHaptic, triggerSuccessHaptic } from '@/utils/haptics';
+import { triggerImpactHaptic, triggerSelectionHaptic } from '@/utils/haptics';
 
 const navy = '#071f49';
 
@@ -146,34 +147,22 @@ export function ScanQrScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const [permission, requestPermission] = useCameraPermissions();
-  const [torchEnabled, setTorchEnabled] = useState(false);
-  const [scannedData, setScannedData] = useState<string | null>(null);
+  const scanSession = useScanQrSession();
   const frameSize = Math.min(width - 96, height * 0.33, 292);
   const scannerTop = Math.max(insets.top + 190, height * 0.31);
-  const hasCameraPermission = permission?.granted ?? false;
-
-  const handleBarcodeScanned = (result: { data: string }) => {
-    if (scannedData) {
-      return;
-    }
-
-    setScannedData(result.data);
-    triggerSuccessHaptic();
-  };
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
-      {hasCameraPermission ? (
+      {scanSession.hasCameraPermission ? (
         <CameraView
           active
           autofocus="off"
           barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-          enableTorch={torchEnabled}
+          enableTorch={scanSession.torchEnabled}
           facing="back"
           mode="picture"
-          onBarcodeScanned={handleBarcodeScanned}
+          onBarcodeScanned={scanSession.handleBarcodeScanned}
           style={styles.cameraPreview}
         />
       ) : null}
@@ -198,20 +187,20 @@ export function ScanQrScreen() {
         <TorchButton
           onPress={() => {
             triggerImpactHaptic();
-            setTorchEnabled((value) => !value);
+            scanSession.toggleTorch();
           }}
         />
       </View>
 
-      {hasCameraPermission ? (
+      {scanSession.hasCameraPermission ? (
         <>
           <View style={[styles.scanArea, { top: scannerTop }]}>
-            <ScannerFrame active={hasCameraPermission} size={frameSize} />
+            <ScannerFrame active={scanSession.hasCameraPermission} size={frameSize} />
           </View>
 
           <View style={[styles.bottomContent, { paddingBottom: Math.max(insets.bottom + 34, 48) }]}>
             <GalleryButton onPress={triggerSelectionHaptic} />
-            {scannedData ? (
+            {scanSession.scannedData ? (
               <GlassView colorScheme="dark" glassEffectStyle="regular" style={styles.detectedPill}>
                 <Ionicons color="#bfe4ff" name="checkmark-circle" size={18} />
                 <Text selectable numberOfLines={1} style={styles.detectedText}>
@@ -224,7 +213,7 @@ export function ScanQrScreen() {
       ) : (
         <CameraPermissionPrompt
           requestPermission={() => {
-            void requestPermission();
+            void scanSession.requestPermission();
           }}
         />
       )}

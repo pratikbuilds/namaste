@@ -2,6 +2,14 @@ import { useMemo, useState } from 'react';
 
 export const exchangeRate = 133.2;
 export const amountOptions = [10, 25, 50, 100] as const;
+export const paymentOptions = [
+  { id: 'apple', title: 'Apple Pay' },
+  { id: 'google', title: 'Google Pay' },
+  { id: 'card', title: 'Debit or credit card' },
+  { id: 'more', title: 'More payment options' },
+] as const;
+
+export type PaymentOptionId = (typeof paymentOptions)[number]['id'];
 
 function formatNpr(amount: number) {
   return new Intl.NumberFormat('en-US', {
@@ -55,5 +63,20 @@ export function useTopUpAmount(initialUsd = '50') {
     updateUsdInput,
     usdAmount,
     usdInput,
+  };
+}
+
+export function useTopUpFlow() {
+  const amount = useTopUpAmount();
+  const [selectedPaymentId, setSelectedPaymentId] = useState<PaymentOptionId>('apple');
+
+  return {
+    ...amount,
+    canComplete: amount.nprAmount > 0,
+    ctaLabel: `Add NPR ${amount.formattedNpr}`,
+    paymentOptions,
+    quoteLabel: `1 USD = ${exchangeRate.toFixed(2)} NPR`,
+    selectedPaymentId,
+    setSelectedPaymentId,
   };
 }

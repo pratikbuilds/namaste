@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   Image,
   Pressable,
@@ -14,77 +14,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OrangeDash } from '@/components/orange-dash';
 import { WalletNavbar } from '@/components/wallet-navbar';
+import {
+  defaultWalletHomeState,
+  getWalletHomeTabTitle,
+  type WalletHomeState,
+  type WalletHomeTab,
+  type WalletTransactionIcon,
+} from '@/data/wallet-home';
+import { appColors, appSurfaces } from '@/theme/design';
 import { appBoldFontFamily, appFontFamily, appHeavyFontFamily } from '@/theme/typography';
 import { triggerSelectionHaptic } from '@/utils/haptics';
 import walletBalanceArt from '../../assets/wallet-balance-art.png';
 import walletHomeBg from '../../assets/wallet-home-bg.png';
 import walletSecurityArt from '../../assets/wallet-security-art.png';
 
-const navy = '#062454';
-const mutedInk = '#40536d';
-const softLine = 'rgba(6, 36, 84, 0.11)';
+const navy = appColors.navy;
+const mutedInk = appColors.mutedInk;
+const softLine = appColors.softLine;
 
-type HomeTab = 'home' | 'history' | 'saved' | 'profile';
-
-const transactions = [
-  {
-    merchant: 'Himalayan Cafe',
-    date: 'Today, 9:41 AM',
-    amount: 'NPR 1,250',
-    icon: 'coffee',
-    tint: '#fde9df',
-  },
-  {
-    merchant: 'Thamel Taxi',
-    date: 'Yesterday',
-    amount: 'NPR 650',
-    icon: 'taxi',
-    tint: '#d9effb',
-  },
-  {
-    merchant: 'Boudha Souvenir',
-    date: 'May 21',
-    amount: 'NPR 2,100',
-    icon: 'necklace',
-    tint: '#d8f4e4',
-  },
-  {
-    merchant: 'Garden of Dreams',
-    date: 'May 20',
-    amount: 'NPR 800',
-    icon: 'gate',
-    tint: '#ffefc9',
-  },
-  {
-    merchant: 'Lalitpur Crafts',
-    date: 'May 19',
-    amount: 'NPR 1,450',
-    icon: 'pot',
-    tint: '#e8dfe7',
-  },
-] as const;
-
-const savedPlaces = [
-  {
-    name: 'Boudha Stupa Market',
-    detail: 'Saved merchant QR',
-    icon: 'bookmark-check-outline',
-    tint: '#e2f3ff',
-  },
-  {
-    name: 'Airport Taxi Counter',
-    detail: 'Frequent payment',
-    icon: 'map-marker-check-outline',
-    tint: '#fff0ce',
-  },
-] satisfies Array<{
-  name: string;
-  detail: string;
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  tint: string;
-}>;
-
-function BalanceCard() {
+function BalanceCard({ balance }: { balance: WalletHomeState['balance'] }) {
   return (
     <View style={styles.balanceCard}>
       <Image resizeMode="cover" source={walletBalanceArt} style={styles.balanceArt} />
@@ -94,10 +42,10 @@ function BalanceCard() {
           Wallet balance
         </Text>
         <Text selectable allowFontScaling={false} numberOfLines={1} style={styles.balanceAmount}>
-          NPR 6,660
+          {balance.npr}
         </Text>
         <Text selectable style={styles.usdAmount}>
-          ~= USD 50.00
+          {balance.usdEquivalent}
         </Text>
       </View>
       <OrangeDash variant="compact" style={styles.balanceDash} />
@@ -162,7 +110,7 @@ function ActionButton({
   );
 }
 
-function TransactionIcon({ icon }: { icon: (typeof transactions)[number]['icon'] }) {
+function TransactionIcon({ icon }: { icon: WalletTransactionIcon }) {
   if (icon === 'necklace') {
     return (
       <View style={styles.necklaceIcon}>
@@ -189,7 +137,13 @@ function TransactionIcon({ icon }: { icon: (typeof transactions)[number]['icon']
   );
 }
 
-function TransactionList({ title = 'Recent transactions' }: { title?: string }) {
+function TransactionList({
+  title = 'Recent transactions',
+  transactions,
+}: {
+  title?: string;
+  transactions: WalletHomeState['transactions'];
+}) {
   return (
     <View style={styles.transactionsCard}>
       <View style={styles.transactionsHeader}>
@@ -234,7 +188,7 @@ function TransactionList({ title = 'Recent transactions' }: { title?: string }) 
   );
 }
 
-function SavedPlaces() {
+function SavedPlaces({ savedPlaces }: { savedPlaces: WalletHomeState['savedPlaces'] }) {
   return (
     <View style={styles.transactionsCard}>
       <View style={styles.transactionsHeader}>
@@ -265,7 +219,7 @@ function SavedPlaces() {
   );
 }
 
-function ProfileSummary() {
+function ProfileSummary({ profile }: { profile: WalletHomeState['profile'] }) {
   return (
     <View style={styles.profileCard}>
       <View style={styles.profileAvatar}>
@@ -273,10 +227,10 @@ function ProfileSummary() {
       </View>
       <View style={styles.profileCopy}>
         <Text selectable style={styles.profileName}>
-          Namaste traveler
+          {profile.name}
         </Text>
         <Text selectable style={styles.profileDetail}>
-          Google connected
+          {profile.detail}
         </Text>
       </View>
       <Ionicons color={navy} name="chevron-forward" size={23} />
@@ -304,21 +258,12 @@ function SecurityBanner() {
 function BottomTabs({
   activeTab,
   onTabPress,
+  tabs,
 }: {
-  activeTab: HomeTab;
-  onTabPress: (tab: HomeTab) => void;
+  activeTab: WalletHomeTab;
+  onTabPress: (tab: WalletHomeTab) => void;
+  tabs: WalletHomeState['tabs'];
 }) {
-  const tabs: Array<{
-    id: HomeTab;
-    label: string;
-    icon: keyof typeof Ionicons.glyphMap;
-  }> = [
-    { id: 'home', label: 'Home', icon: 'home' },
-    { id: 'history', label: 'History', icon: 'time-outline' },
-    { id: 'saved', label: 'Saved', icon: 'bookmark-outline' },
-    { id: 'profile', label: 'Profile', icon: 'person-outline' },
-  ];
-
   return (
     <View style={styles.tabBar}>
       {tabs.map((tab) => (
@@ -340,36 +285,24 @@ function BottomTabs({
 }
 
 export function WalletHomeScreen({
+  state = defaultWalletHomeState,
   onBack,
   onScanQr,
   onTopUp,
 }: {
+  state?: WalletHomeState;
   onBack?: () => void;
   onScanQr?: () => void;
   onTopUp?: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<HomeTab>('home');
+  const [activeTab, setActiveTab] = useState<WalletHomeTab>('home');
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const horizontalPadding = Math.max(24, Math.min(30, width * 0.06));
   const actionButtonWidth = (width - horizontalPadding * 2 - 18) / 2;
-  const tabTitle = useMemo(() => {
-    if (activeTab === 'history') {
-      return 'Payment history';
-    }
+  const tabTitle = getWalletHomeTabTitle(activeTab);
 
-    if (activeTab === 'saved') {
-      return 'Saved QR';
-    }
-
-    if (activeTab === 'profile') {
-      return 'Profile';
-    }
-
-    return undefined;
-  }, [activeTab]);
-
-  function selectTab(tab: HomeTab) {
+  function selectTab(tab: WalletHomeTab) {
     setActiveTab(tab);
     triggerSelectionHaptic();
   }
@@ -400,7 +333,7 @@ export function WalletHomeScreen({
 
         {activeTab === 'home' ? (
           <>
-            <BalanceCard />
+            <BalanceCard balance={state.balance} />
 
             <View style={styles.actionsRow}>
               <ActionButton
@@ -419,16 +352,18 @@ export function WalletHomeScreen({
               />
             </View>
 
-            <TransactionList />
+            <TransactionList transactions={state.transactions} />
             <SecurityBanner />
           </>
         ) : null}
-        {activeTab === 'history' ? <TransactionList title="All transactions" /> : null}
-        {activeTab === 'saved' ? <SavedPlaces /> : null}
-        {activeTab === 'profile' ? <ProfileSummary /> : null}
+        {activeTab === 'history' ? (
+          <TransactionList title="All transactions" transactions={state.transactions} />
+        ) : null}
+        {activeTab === 'saved' ? <SavedPlaces savedPlaces={state.savedPlaces} /> : null}
+        {activeTab === 'profile' ? <ProfileSummary profile={state.profile} /> : null}
       </ScrollView>
       <View style={[styles.bottomChrome, { paddingBottom: 8 }]}>
-        <BottomTabs activeTab={activeTab} onTabPress={selectTab} />
+        <BottomTabs activeTab={activeTab} onTabPress={selectTab} tabs={state.tabs} />
       </View>
     </View>
   );
@@ -465,7 +400,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderCurve: 'continuous',
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.98)',
+    borderColor: appSurfaces.cardBorder,
     backgroundColor: 'rgba(255, 252, 246, 0.9)',
     overflow: 'hidden',
     boxShadow: '0 10px 26px rgba(35, 63, 91, 0.16)',
@@ -558,7 +493,7 @@ const styles = StyleSheet.create({
     borderColor: '#082c63',
   },
   secondaryAction: {
-    backgroundColor: 'rgba(255, 252, 246, 0.94)',
+    backgroundColor: appSurfaces.warmCard,
     borderWidth: 1.8,
     borderColor: '#dfa83a',
   },
@@ -598,13 +533,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderCurve: 'continuous',
     borderWidth: 1.4,
-    borderColor: 'rgba(255, 255, 255, 0.98)',
-    backgroundColor: 'rgba(255, 252, 246, 0.94)',
+    borderColor: appSurfaces.cardBorder,
+    backgroundColor: appSurfaces.warmCard,
     overflow: 'hidden',
     paddingHorizontal: 19,
     paddingTop: 14,
     paddingBottom: 12,
-    boxShadow: '0 13px 25px rgba(35, 63, 91, 0.14)',
+    boxShadow: appSurfaces.walletShadow,
   },
   transactionsHeader: {
     minHeight: 31,
@@ -755,13 +690,13 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderCurve: 'continuous',
     borderWidth: 1.4,
-    borderColor: 'rgba(255, 255, 255, 0.98)',
-    backgroundColor: 'rgba(255, 252, 246, 0.94)',
+    borderColor: appSurfaces.cardBorder,
+    backgroundColor: appSurfaces.warmCard,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 15,
     paddingHorizontal: 18,
-    boxShadow: '0 13px 25px rgba(35, 63, 91, 0.14)',
+    boxShadow: appSurfaces.walletShadow,
   },
   profileAvatar: {
     width: 52,
