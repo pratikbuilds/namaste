@@ -259,9 +259,10 @@ export function TopUpWalletScreen({
         <PressableScale
           accessibilityRole="button"
           accessibilityState={{ disabled: !topUp.canComplete }}
+          disabled={!topUp.canComplete}
           haptic="impact"
           onPress={topUp.canComplete ? onComplete : undefined}
-          style={styles.ctaButton}>
+          style={[styles.ctaButton, !topUp.canComplete && styles.ctaButtonDisabled]}>
           <WalletIcon light />
           <Text selectable style={styles.ctaText}>
             {topUp.ctaLabel}
@@ -1076,6 +1077,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 18,
     ...primaryCtaButtonStyle,
+  },
+  ctaButtonDisabled: {
+    opacity: 0.58,
   },
   ctaText: {
     ...primaryCtaTextStyle,

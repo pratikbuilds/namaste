@@ -1,18 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { Image, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { OrangeDash } from '@/components/orange-dash';
+import { PressableScale } from '@/components/pressable-scale';
 import { WalletNavbar } from '@/components/wallet-navbar';
 import {
   defaultWalletHomeState,
@@ -74,10 +67,11 @@ function ActionButton({
 
   return (
     <View style={{ width }}>
-      <Pressable
+      <PressableScale
         accessibilityRole="button"
+        haptic={primary ? 'impact' : 'selection'}
         onPress={onPress}
-        style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}>
+        style={styles.actionButton}>
         <View
           pointerEvents="none"
           style={[
@@ -105,7 +99,7 @@ function ActionButton({
           ]}>
           {label}
         </Text>
-      </Pressable>
+      </PressableScale>
     </View>
   );
 }
@@ -138,9 +132,11 @@ function TransactionIcon({ icon }: { icon: WalletTransactionIcon }) {
 }
 
 function TransactionList({
+  onViewAll,
   title = 'Recent transactions',
   transactions,
 }: {
+  onViewAll?: () => void;
   title?: string;
   transactions: WalletHomeState['transactions'];
 }) {
@@ -150,12 +146,18 @@ function TransactionList({
         <Text selectable numberOfLines={1} style={styles.sectionTitle}>
           {title}
         </Text>
-        <Pressable accessibilityRole="button" style={styles.seeAll}>
-          <Text selectable style={styles.seeAllText}>
-            See all transactions
-          </Text>
-          <Ionicons color="#0058c8" name="chevron-forward" size={20} />
-        </Pressable>
+        {onViewAll ? (
+          <PressableScale
+            accessibilityRole="button"
+            onPress={onViewAll}
+            pressScale={0.985}
+            style={styles.seeAll}>
+            <Text selectable style={styles.seeAllText}>
+              See all transactions
+            </Text>
+            <Ionicons color="#0058c8" name="chevron-forward" size={20} />
+          </PressableScale>
+        ) : null}
       </View>
 
       {transactions.map((transaction, index) => (
@@ -198,7 +200,7 @@ function SavedPlaces({ savedPlaces }: { savedPlaces: WalletHomeState['savedPlace
       </View>
       {savedPlaces.map((place, index) => (
         <View key={place.name}>
-          <Pressable accessibilityRole="button" style={styles.savedRow}>
+          <PressableScale accessibilityRole="button" pressScale={0.985} style={styles.savedRow}>
             <View style={[styles.transactionIcon, { backgroundColor: place.tint }]}>
               <MaterialCommunityIcons color={navy} name={place.icon} size={27} />
             </View>
@@ -211,7 +213,7 @@ function SavedPlaces({ savedPlaces }: { savedPlaces: WalletHomeState['savedPlace
               </Text>
             </View>
             <Ionicons color="#6f87a0" name="chevron-forward" size={22} />
-          </Pressable>
+          </PressableScale>
           {index < savedPlaces.length - 1 ? <View style={styles.transactionDivider} /> : null}
         </View>
       ))}
@@ -240,7 +242,7 @@ function ProfileSummary({ profile }: { profile: WalletHomeState['profile'] }) {
 
 function SecurityBanner() {
   return (
-    <Pressable accessibilityRole="button" style={styles.securityBanner}>
+    <PressableScale accessibilityRole="button" pressScale={0.985} style={styles.securityBanner}>
       <Image resizeMode="cover" source={walletSecurityArt} style={styles.securityArt} />
       <View style={styles.securityTextWrap}>
         <Text selectable adjustsFontSizeToFit numberOfLines={1} style={styles.securityTitle}>
@@ -251,7 +253,7 @@ function SecurityBanner() {
         </Text>
       </View>
       <Ionicons color={navy} name="chevron-forward" size={23} />
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -267,18 +269,20 @@ function BottomTabs({
   return (
     <View style={styles.tabBar}>
       {tabs.map((tab) => (
-        <Pressable
+        <PressableScale
           accessibilityRole="tab"
           accessibilityState={{ selected: activeTab === tab.id }}
+          haptic={false}
           key={tab.id}
           onPress={() => onTabPress(tab.id)}
-          style={({ pressed }) => [styles.tabItem, pressed && styles.pressed]}>
+          pressScale={0.96}
+          style={[styles.tabItem, activeTab === tab.id && styles.activeTabItem]}>
           <Ionicons color={activeTab === tab.id ? navy : '#304e72'} name={tab.icon} size={27} />
           <Text selectable style={[styles.tabLabel, activeTab === tab.id && styles.activeTabLabel]}>
             {tab.label}
           </Text>
           {activeTab === tab.id ? <View style={styles.activeTabIndicator} /> : null}
-        </Pressable>
+        </PressableScale>
       ))}
     </View>
   );
@@ -352,7 +356,10 @@ export function WalletHomeScreen({
               />
             </View>
 
-            <TransactionList transactions={state.transactions} />
+            <TransactionList
+              onViewAll={() => selectTab('history')}
+              transactions={state.transactions}
+            />
             <SecurityBanner />
           </>
         ) : null}
@@ -483,9 +490,6 @@ const styles = StyleSheet.create({
   actionChrome: {
     borderRadius: 24,
     borderCurve: 'continuous',
-  },
-  pressed: {
-    transform: [{ scale: 0.98 }],
   },
   primaryAction: {
     backgroundColor: '#003f75',
@@ -755,6 +759,9 @@ const styles = StyleSheet.create({
     gap: 1,
     borderRadius: 20,
     borderCurve: 'continuous',
+  },
+  activeTabItem: {
+    backgroundColor: 'rgba(0, 88, 200, 0.08)',
   },
   tabLabel: {
     color: '#18365e',

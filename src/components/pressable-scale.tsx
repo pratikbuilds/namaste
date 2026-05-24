@@ -4,14 +4,16 @@ import { Pressable } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 
+import { appMotion } from '@/theme/design';
 import { triggerImpactHaptic, triggerSelectionHaptic } from '@/utils/haptics';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
-const easeOut = Easing.bezier(0.23, 1, 0.32, 1);
+const easeOut = Easing.bezier(...appMotion.easeOut.easing);
 
 type HapticFeedback = 'impact' | 'selection' | false;
 
@@ -33,11 +35,20 @@ export function PressableScale({
   ...props
 }: PressableScaleProps) {
   const scale = useSharedValue(1);
+  const reduceMotion = useReducedMotion();
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
   }));
 
   function handlePress(event: GestureResponderEvent) {
+    if (props.disabled) {
+      return;
+    }
+
+    if (!onPress) {
+      return;
+    }
+
     if (haptic === 'impact') {
       triggerImpactHaptic();
     }
@@ -50,12 +61,16 @@ export function PressableScale({
   }
 
   function handlePressIn(event: GestureResponderEvent) {
-    scale.value = withTiming(pressScale, { duration: 120, easing: easeOut });
+    if (!reduceMotion && !props.disabled) {
+      scale.value = withTiming(pressScale, { duration: appMotion.pressInMs, easing: easeOut });
+    }
     onPressIn?.(event);
   }
 
   function handlePressOut(event: GestureResponderEvent) {
-    scale.value = withTiming(1, { duration: 150, easing: easeOut });
+    if (!reduceMotion) {
+      scale.value = withTiming(1, { duration: appMotion.pressOutMs, easing: easeOut });
+    }
     onPressOut?.(event);
   }
 
