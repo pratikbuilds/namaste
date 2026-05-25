@@ -52,7 +52,7 @@ export const defaultWalletHomeState: WalletHomeState = {
     {
       merchant: 'Himalayan Cafe',
       date: 'Today, 9:41 AM',
-      amount: 'NPR 1,250',
+      amount: 'NPR 500',
       icon: 'coffee',
       tint: '#fde9df',
     },
@@ -66,21 +66,21 @@ export const defaultWalletHomeState: WalletHomeState = {
     {
       merchant: 'Boudha Souvenir',
       date: 'May 21',
-      amount: 'NPR 2,100',
+      amount: 'NPR 600',
       icon: 'necklace',
       tint: '#d8f4e4',
     },
     {
       merchant: 'Garden of Dreams',
       date: 'May 20',
-      amount: 'NPR 800',
+      amount: 'NPR 750',
       icon: 'gate',
       tint: '#ffefc9',
     },
     {
       merchant: 'Lalitpur Crafts',
       date: 'May 19',
-      amount: 'NPR 1,450',
+      amount: 'NPR 450',
       icon: 'pot',
       tint: '#e8dfe7',
     },

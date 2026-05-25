@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import { useState } from 'react';
 import {
   Image,
   ImageBackground,
@@ -14,6 +15,8 @@ import {
 } from 'react-native';
 import Animated, { Easing, FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useWallet } from '@/context/wallet-context';
 
 import { FlowBackIcon } from '@/components/flow-back-icon';
 import { OrangeDash } from '@/components/orange-dash';
@@ -39,12 +42,21 @@ export function TopUpWalletRoute() {
 export function TopUpWalletScreen({
   onBack,
   onComplete,
+  onConfirm,
 }: {
   onBack?: () => void;
   onComplete?: () => void;
+  onConfirm?: (nprAmount: number) => void;
 }) {
   const topUp = useTopUpFlow();
+  const { formattedBalance } = useWallet();
+  const [successVisible, setSuccessVisible] = useState(false);
   const insets = useSafeAreaInsets();
+
+  function handleAdd() {
+    onConfirm?.(topUp.nprAmount);
+    setSuccessVisible(true);
+  }
   const { height, width } = useWindowDimensions();
   const reduceMotion = useReducedMotion();
   const isShort = height < 780;
@@ -90,7 +102,7 @@ export function TopUpWalletScreen({
                   Current balance
                 </Text>
                 <Text selectable numberOfLines={1} style={styles.balanceValue}>
-                  NPR 0
+                  {formattedBalance}
                 </Text>
               </View>
             </View>
@@ -207,7 +219,13 @@ export function TopUpWalletScreen({
             <View style={styles.rateDivider} />
             <View style={styles.rateRow}>
               <View style={styles.rateLeft}>
-                <RefreshIcon />
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityLabel="Refresh exchange rate"
+                  haptic="selection"
+                  onPress={topUp.refreshRate}>
+                  <RefreshIcon />
+                </PressableScale>
                 <Animated.Text
                   key={topUp.quoteLabel}
                   selectable
@@ -275,7 +293,7 @@ export function TopUpWalletScreen({
           accessibilityState={{ disabled: !topUp.canComplete }}
           disabled={!topUp.canComplete}
           haptic="impact"
-          onPress={topUp.canComplete ? onComplete : undefined}
+          onPress={topUp.canComplete ? handleAdd : undefined}
           style={[styles.ctaButton, !topUp.canComplete && styles.ctaButtonDisabled]}>
           <WalletIcon light />
           <Animated.Text
@@ -301,6 +319,31 @@ export function TopUpWalletScreen({
             </PressableScale>
           </View>
         </InputAccessoryView>
+      ) : null}
+
+      {successVisible ? (
+        <Animated.View
+          entering={FadeIn.duration(200).easing(Easing.out(Easing.cubic))}
+          style={styles.successOverlay}>
+          <View style={styles.successCard}>
+            <View style={styles.successIconWrap}>
+              <CheckMark color="#ffffff" size={22} />
+            </View>
+            <Text selectable style={styles.successAmount}>
+              NPR {topUp.formattedNpr}
+            </Text>
+            <Text selectable style={styles.successMessage}>
+              has been added to your{'\n'}Namaste wallet
+            </Text>
+            <PressableScale
+              accessibilityRole="button"
+              haptic="impact"
+              onPress={onComplete}
+              style={[styles.ctaButton, styles.successDoneButton]}>
+              <Text style={styles.ctaText}>Done</Text>
+            </PressableScale>
+          </View>
+        </Animated.View>
       ) : null}
     </View>
   );
@@ -454,10 +497,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   header: {
-    height: 134,
+    height: 152,
   },
   headerCompact: {
-    height: 112,
+    height: 144,
   },
   backButton: {
     position: 'absolute',
@@ -832,18 +875,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(218, 218, 213, 0.94)',
     borderRadius: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     backgroundColor: 'rgba(255, 252, 247, 0.94)',
     boxShadow: '0 16px 30px rgba(35, 45, 65, 0.12)',
   },
   paymentRow: {
-    minHeight: 43,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 9,
     gap: 17,
   },
   paymentRowCompact: {
-    minHeight: 38,
+    minHeight: 46,
+    paddingVertical: 7,
   },
   paymentRowSelected: {
     backgroundColor: 'rgba(226, 238, 252, 0.28)',
@@ -1116,5 +1161,57 @@ const styles = StyleSheet.create({
   },
   ctaText: {
     ...primaryCtaTextStyle,
+  },
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(4, 14, 32, 0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+  },
+  successCard: {
+    width: '100%',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(226, 226, 222, 0.92)',
+    backgroundColor: 'rgba(255, 249, 238, 0.98)',
+    alignItems: 'center',
+    paddingTop: 32,
+    paddingBottom: 28,
+    paddingHorizontal: 24,
+    gap: 10,
+    boxShadow: '0 20px 50px rgba(4, 14, 32, 0.38)',
+  },
+  successIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0d3974',
+    marginBottom: 6,
+  },
+  successAmount: {
+    color: navy,
+    fontFamily: appHeavyFontFamily,
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: 0,
+    lineHeight: 38,
+    textAlign: 'center',
+  },
+  successMessage: {
+    color: '#3a4d66',
+    fontFamily: appFontFamily,
+    fontSize: 16,
+    fontWeight: '500',
+    letterSpacing: 0,
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  successDoneButton: {
+    width: '100%',
+    justifyContent: 'center',
   },
 });
