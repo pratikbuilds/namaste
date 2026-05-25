@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
   FadeInUp,
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OrangeDash } from '@/components/orange-dash';
 import { PressableScale } from '@/components/pressable-scale';
 import { WalletNavbar } from '@/components/wallet-navbar';
+import { useWallet } from '@/context/wallet-context';
 import {
   defaultWalletHomeState,
   getWalletHomeTabTitle,
@@ -200,11 +201,10 @@ function TransactionList({
             accessibilityRole="button"
             onPress={onViewAll}
             pressScale={0.985}
-            style={styles.seeAll}>
+            style={styles.seeAllPill}>
             <Text selectable style={styles.seeAllText}>
-              See all transactions
+              See all transactions →
             </Text>
-            <Ionicons color="#0058c8" name="chevron-forward" size={20} />
           </PressableScale>
         ) : null}
       </View>
@@ -219,17 +219,15 @@ function TransactionList({
               <Text selectable numberOfLines={1} style={styles.transactionMerchant}>
                 {transaction.merchant}
               </Text>
-              <Text selectable style={styles.transactionDate}>
+              <Text selectable numberOfLines={1} style={styles.transactionDate}>
                 {transaction.date}
               </Text>
             </View>
-            <Text
-              selectable
-              adjustsFontSizeToFit
-              numberOfLines={1}
-              style={styles.transactionAmount}>
-              - {transaction.amount}
-            </Text>
+            <View style={styles.transactionAmountChip}>
+              <Text selectable numberOfLines={1} style={styles.transactionAmountText}>
+                - {transaction.amount}
+              </Text>
+            </View>
             <Ionicons color="#6f87a0" name="chevron-forward" size={22} />
           </View>
           {index < transactions.length - 1 ? <View style={styles.transactionDivider} /> : null}
@@ -322,10 +320,12 @@ function SecurityBanner() {
 
 function BottomTabs({
   activeTab,
+  onScanQr,
   onTabPress,
   tabs,
 }: {
   activeTab: WalletHomeTab;
+  onScanQr: (() => void) | undefined;
   onTabPress: (tab: WalletHomeTab) => void;
   tabs: WalletHomeState['tabs'];
 }) {
@@ -335,28 +335,64 @@ function BottomTabs({
     0,
     tabs.findIndex((tab) => tab.id === activeTab)
   );
-  const tabWidth = tabs.length > 0 ? barWidth / tabs.length : 0;
-  const activeX = useSharedValue(activeIndex * tabWidth);
+
+  // 5 visual slots: [tab0][tab1][FAB placeholder][tab2][tab3]
+  const slotCount = tabs.length + 1;
+  const slotWidth = barWidth > 0 ? barWidth / slotCount : 0;
+  // tabs at index >= 2 sit one slot to the right of the FAB placeholder
+  const activeSlotIndex = activeIndex < 2 ? activeIndex : activeIndex + 1;
+
+  const activeX = useSharedValue(activeSlotIndex * slotWidth);
   const activeSurfaceStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: activeX.value }],
-    width: tabWidth,
+    width: slotWidth,
   }));
 
   useEffect(() => {
+    const target = activeSlotIndex * slotWidth;
     activeX.value = reduceMotion
-      ? activeIndex * tabWidth
-      : withTiming(activeIndex * tabWidth, {
+      ? target
+      : withTiming(target, {
           duration: 180,
           easing: Easing.bezier(...appMotion.easeOut.easing),
         });
-  }, [activeIndex, activeX, reduceMotion, tabWidth]);
+  }, [activeSlotIndex, activeX, reduceMotion, slotWidth]);
+
+  const leftTabs = tabs.slice(0, 2);
+  const rightTabs = tabs.slice(2);
 
   return (
     <View onLayout={(event) => setBarWidth(event.nativeEvent.layout.width)} style={styles.tabBar}>
       {barWidth > 0 ? (
         <Animated.View style={[styles.activeTabSurface, activeSurfaceStyle]} />
       ) : null}
-      {tabs.map((tab) => (
+      {leftTabs.map((tab) => (
+        <PressableScale
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === tab.id }}
+          haptic={false}
+          key={tab.id}
+          onPress={() => onTabPress(tab.id)}
+          pressScale={0.96}
+          style={styles.tabItem}>
+          <Ionicons color={activeTab === tab.id ? navy : '#304e72'} name={tab.icon} size={27} />
+          <Text selectable style={[styles.tabLabel, activeTab === tab.id && styles.activeTabLabel]}>
+            {tab.label}
+          </Text>
+          {activeTab === tab.id ? <View style={styles.activeTabIndicator} /> : null}
+        </PressableScale>
+      ))}
+      {/* Center FAB slot — marginTop lifts the circle above the bar */}
+      <View style={styles.fabSlot}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Scan QR"
+          onPress={onScanQr}
+          style={styles.fabButton}>
+          <MaterialCommunityIcons color="#ffffff" name="line-scan" size={28} />
+        </Pressable>
+      </View>
+      {rightTabs.map((tab) => (
         <PressableScale
           accessibilityRole="tab"
           accessibilityState={{ selected: activeTab === tab.id }}
@@ -387,6 +423,7 @@ export function WalletHomeScreen({
   onScanQr?: () => void;
   onTopUp?: () => void;
 }) {
+  const { formattedBalance } = useWallet();
   const [activeTab, setActiveTab] = useState<WalletHomeTab>('home');
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -426,7 +463,7 @@ export function WalletHomeScreen({
         {activeTab === 'home' ? (
           <>
             <StaggeredSection index={0}>
-              <BalanceCard balance={state.balance} />
+              <BalanceCard balance={{ ...state.balance, npr: formattedBalance }} />
             </StaggeredSection>
 
             <StaggeredSection index={1}>
@@ -465,8 +502,13 @@ export function WalletHomeScreen({
         {activeTab === 'saved' ? <SavedPlaces savedPlaces={state.savedPlaces} /> : null}
         {activeTab === 'profile' ? <ProfileSummary profile={state.profile} /> : null}
       </ScrollView>
-      <View style={[styles.bottomChrome, { paddingBottom: 8 }]}>
-        <BottomTabs activeTab={activeTab} onTabPress={selectTab} tabs={state.tabs} />
+      <View style={[styles.bottomChrome, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        <BottomTabs
+          activeTab={activeTab}
+          onScanQr={onScanQr}
+          onTabPress={selectTab}
+          tabs={state.tabs}
+        />
       </View>
     </View>
   );
@@ -569,19 +611,19 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 65,
+    minHeight: 52,
   },
   actionButton: {
     width: '100%',
-    minHeight: 65,
+    minHeight: 52,
     borderRadius: 24,
     borderCurve: 'continuous',
     overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    justifyContent: 'center',
     gap: 10,
-    paddingLeft: 28,
+    paddingHorizontal: 20,
   },
   actionChrome: {
     borderRadius: 24,
@@ -645,7 +687,7 @@ const styles = StyleSheet.create({
   transactionsHeader: {
     minHeight: 31,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
   },
@@ -657,22 +699,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0,
   },
-  seeAll: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
+  seeAllPill: {
+    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginRight: 12,
   },
   seeAllText: {
     color: '#0058c8',
     fontFamily: appFontFamily,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0,
   },
   transactionRow: {
-    minHeight: 52,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   transactionIcon: {
     width: 38,
@@ -701,13 +746,23 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     letterSpacing: 0,
   },
-  transactionAmount: {
-    minWidth: 94,
-    textAlign: 'right',
-    color: navy,
+  transactionAmountChip: {
+    flexShrink: 0,
+    alignSelf: 'center',
+    marginLeft: 10,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  transactionAmountText: {
+    color: '#C0292B',
     fontFamily: appBoldFontFamily,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     letterSpacing: 0,
     fontVariant: ['tabular-nums'],
   },
@@ -781,7 +836,7 @@ const styles = StyleSheet.create({
   },
   securityBanner: {
     marginTop: 2,
-    minHeight: 46,
+    minHeight: 54,
     borderRadius: 16,
     borderCurve: 'continuous',
     borderWidth: 1.2,
@@ -789,8 +844,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(252, 255, 255, 0.75)',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 68,
-    paddingRight: 18,
+    paddingHorizontal: 18,
     overflow: 'hidden',
     boxShadow: '0 9px 16px rgba(35, 63, 91, 0.13)',
   },
@@ -868,6 +922,22 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     backgroundColor: 'transparent',
   },
+  fabSlot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -24,
+    zIndex: 20,
+  },
+  fabButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#003f75',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 6px 20px rgba(0, 30, 80, 0.45)',
+  },
   tabBar: {
     minHeight: 60,
     borderRadius: 24,
@@ -878,8 +948,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    overflow: 'hidden',
-    position: 'relative',
+    overflow: 'visible',
     boxShadow: '0 15px 31px rgba(35, 63, 91, 0.2)',
   },
   tabItem: {

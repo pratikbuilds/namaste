@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-export const exchangeRate = 133.2;
+const FALLBACK_RATE = 133.2;
+
 export const amountOptions = [10, 25, 50, 100] as const;
 export const paymentOptions = [
   { id: 'apple', title: 'Apple Pay' },
@@ -30,10 +31,32 @@ function formatUsdInput(value: number) {
   return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '');
 }
 
-export function useTopUpAmount(initialUsd = '50') {
+function useExchangeRate() {
+  const [rate, setRate] = useState(FALLBACK_RATE);
+
+  const fetchRate = useCallback(async () => {
+    try {
+      const res = await fetch('https://open.er-api.com/v6/latest/USD');
+      const json = (await res.json()) as { result: string; rates: Record<string, number> };
+      if (json.result === 'success' && typeof json.rates['NPR'] === 'number') {
+        setRate(json.rates['NPR']);
+      }
+    } catch {
+      // keep current rate on network error
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRate();
+  }, [fetchRate]);
+
+  return { rate, refreshRate: fetchRate };
+}
+
+export function useTopUpAmount(rate: number, initialUsd = '50') {
   const [usdInput, setUsdInput] = useState(initialUsd);
   const usdAmount = Number.parseFloat(usdInput) || 0;
-  const nprAmount = useMemo(() => Math.round(usdAmount * exchangeRate), [usdAmount]);
+  const nprAmount = useMemo(() => Math.round(usdAmount * rate), [usdAmount, rate]);
 
   function selectUsdPreset(amount: (typeof amountOptions)[number]) {
     setUsdInput(String(amount));
@@ -52,7 +75,7 @@ export function useTopUpAmount(initialUsd = '50') {
       return;
     }
 
-    setUsdInput(formatUsdInput(nextNpr / exchangeRate));
+    setUsdInput(formatUsdInput(nextNpr / rate));
   }
 
   return {
@@ -67,7 +90,8 @@ export function useTopUpAmount(initialUsd = '50') {
 }
 
 export function useTopUpFlow() {
-  const amount = useTopUpAmount();
+  const { rate, refreshRate } = useExchangeRate();
+  const amount = useTopUpAmount(rate);
   const [selectedPaymentId, setSelectedPaymentId] = useState<PaymentOptionId>('apple');
 
   return {
@@ -75,7 +99,8 @@ export function useTopUpFlow() {
     canComplete: amount.nprAmount > 0,
     ctaLabel: `Add NPR ${amount.formattedNpr}`,
     paymentOptions,
-    quoteLabel: `1 USD = ${exchangeRate.toFixed(2)} NPR`,
+    quoteLabel: `1 USD = ${rate.toFixed(2)} NPR`,
+    refreshRate,
     selectedPaymentId,
     setSelectedPaymentId,
   };
