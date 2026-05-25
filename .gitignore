@@ -2,6 +2,8 @@ node_modules/
 .expo/
 .playwright-mcp/
 dist/
+dist-preview/
+dist-web/
 .env
 .env.*
 !.env.example
@@ -17,6 +19,7 @@ bun-error.log*
 *.mobileprovision
 *.orig.*
 web-build/
+wallet-browser-review*.png
 
 ios
 android
